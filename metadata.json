@@ -1,5 +1,5 @@
 {
-  "name": "",
-  "description": "",
+  "name": "EDEN",
+  "description": "Visual AI Graph IDE with Ternary VM, powered by Qwen & Gemini CLIs",
   "requestFramePermissions": []
 }

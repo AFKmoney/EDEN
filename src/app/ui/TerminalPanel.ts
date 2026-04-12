@@ -3,9 +3,8 @@ import { TerminalService } from '../core/TerminalService';
 import { MatIconModule } from '@angular/material/icon';
 import { DatePipe, NgClass, NgIf } from '@angular/common';
 import { AppUiService } from '../core/AppUiService';
-import { CliService } from '../core/CliService';
-import { CoreEngine } from '../core/CoreEngine';
-import { VfsService } from '../core/VfsService';
+import { CliUiService } from '../core/CliUiService';
+import { EdenAiPipelineService } from '../core/EdenAiPipelineService';
 
 @Component({
   selector: 'eden-terminal',
@@ -47,7 +46,10 @@ import { VfsService } from '../core/VfsService';
                   }">
               [{{ log.level }}]
             </span>
-            <span class="text-gray-300 whitespace-pre-wrap break-words font-mono">{{ log.message }}</span>
+            <span class="text-gray-300 whitespace-pre-wrap break-words font-mono"
+                  [ngClass]="{'text-red-300 font-bold': log.message.startsWith('[AGENT]')}">
+              {{ log.message }}
+            </span>
           </div>
         }
         @if (terminal.logs().length === 0) {
@@ -64,9 +66,9 @@ import { VfsService } from '../core/VfsService';
           class="flex-1 bg-transparent border-none outline-none text-white font-mono text-xs"
           placeholder="Type a command (e.g. /qwen create a node, /gemini analyze graph, clear)..."
           (keydown.enter)="executeCommand(cmdInput.value); cmdInput.value = ''"
-          [disabled]="isExecuting"
+          [disabled]="pipeline.isExecuting()"
         />
-        <mat-icon *ngIf="isExecuting" class="text-[var(--color-eden-neon)] animate-spin" style="font-size: 14px; width: 14px; height: 14px;">autorenew</mat-icon>
+        <mat-icon *ngIf="pipeline.isExecuting()" class="text-[var(--color-eden-neon)] animate-spin" style="font-size: 14px; width: 14px; height: 14px;">autorenew</mat-icon>
       </div>
     </div>
   `
@@ -74,12 +76,10 @@ import { VfsService } from '../core/VfsService';
 export class TerminalPanel implements AfterViewChecked {
   public terminal = inject(TerminalService);
   public ui = inject(AppUiService);
-  private cli = inject(CliService);
-  private engine = inject(CoreEngine);
-  private vfs = inject(VfsService);
+  public cliUi = inject(CliUiService);
+  public pipeline = inject(EdenAiPipelineService);
 
   @ViewChild('scrollContainer') private scrollContainer!: ElementRef;
-  isExecuting = false;
 
   ngAfterViewChecked() {
     this.scrollToBottom();
@@ -104,137 +104,40 @@ export class TerminalPanel implements AfterViewChecked {
 
     let engineName: 'qwen' | 'gemini' | null = null;
     let args = '';
+    let isAgentic = false;
 
-    if (trimmed.startsWith('/qwen ') || trimmed === '/qwen') {
+    if (trimmed.startsWith('/agent qwen ') || trimmed === '/agent qwen') {
+      engineName = 'qwen';
+      args = trimmed.replace('/agent qwen', '').trim();
+      isAgentic = true;
+    } else if (trimmed.startsWith('/agent gemini ') || trimmed === '/agent gemini') {
+      engineName = 'gemini';
+      args = trimmed.replace('/agent gemini', '').trim();
+      isAgentic = true;
+    } else if (trimmed.startsWith('/qwen ') || trimmed === '/qwen') {
       engineName = 'qwen';
       args = trimmed.replace('/qwen', '').trim();
     } else if (trimmed.startsWith('/gemini ') || trimmed === '/gemini') {
       engineName = 'gemini';
       args = trimmed.replace('/gemini', '').trim();
     } else {
-      this.terminal.log(`Command not found: ${trimmed}. Try /qwen <prompt> or /gemini <prompt>`, 'ERROR');
+      this.terminal.log(`Command not found: ${trimmed}. Try /qwen <cmd>, /gemini <cmd>, or /agent <qwen|gemini> <objective>`, 'ERROR');
       return;
     }
 
-    this.isExecuting = true;
-    this.terminal.log(`[CLI Framework] Starting ${engineName}...`, 'SYSTEM');
-
-    // Provide context of the current VM and Graph state
-    const currentState = JSON.stringify(this.engine.genome());
-    const vfsState = JSON.stringify(this.vfs.files());
-    const instructions = `You are an EDEN architecture AI connected to the Terminal. 
-The user is interacting with you via the CLI.
-You have full access to the current EDEN Graph and Ternary VM state:
-${currentState}
-
-You also have access to the Virtual File System (VFS):
-${vfsState}
-
-If the user asks to create or modify nodes, OR create/modify files, you MUST respond ONLY with a JSON block enclosed in \`\`\`json ... \`\`\`.
-Format strictly as:
-\`\`\`json
-{
-  "nodes": [
-    { "id": "unique_string", "type": "UI" | "Logic" | "Data", "position": {"x": number, "y": number}, "metadata": {"title": "string", "content": "string"} }
-  ],
-  "edges": [
-    { "sourceId": "id1", "targetId": "id2" }
-  ],
-  "files": [
-    { "path": "/src/example.ts", "content": "string content here" }
-  ]
-}
-\`\`\`
-If the user is just asking a question about the state or general dev environment, respond normally in text.
-User request: `;
-
-    const finalArgs = instructions + args;
-
-    try {
-      const res = await this.cli.execute(engineName, finalArgs);
-      
-      if (res.stdout) {
-        this.terminal.log(res.stdout, 'INFO');
-        this.tryInjectGraph(res.stdout);
+    if (isAgentic) {
+      if (!args) {
+        this.terminal.log(`Provide an objective. Usage: /agent ${engineName} <objective>`, 'ERROR');
+        return;
       }
-      if (res.stderr) {
-        this.terminal.log(res.stderr, 'WARN');
+      this.cliUi.isOpen.set(true); // Open CLI Panel to show the Agentic Tracker
+      await this.pipeline.executeAgenticLoop(engineName, args);
+    } else {
+      if (args.startsWith('-')) {
+        await this.pipeline.executeRaw(engineName, args);
+      } else {
+        await this.pipeline.execute(engineName, args);
       }
-      if (res.error) {
-        this.terminal.log(res.error, 'ERROR');
-      }
-    } catch (e: any) {
-      this.terminal.log(e.message || 'Unknown error executing CLI', 'ERROR');
-    } finally {
-      this.isExecuting = false;
-    }
-  }
-
-  private tryInjectGraph(out: string) {
-    try {
-      const jsonMatch = out.match(/```(?:json)?\n([\s\S]*?)\n```/) || out.match(/\{([\s\S]*)\}/);
-      const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : out;
-      
-      const startIndex = jsonStr.indexOf('{');
-      const endIndex = jsonStr.lastIndexOf('}');
-      
-      if (startIndex !== -1 && endIndex !== -1) {
-        const cleanJson = jsonStr.substring(startIndex, endIndex + 1);
-        const parsed = JSON.parse(cleanJson);
-        
-        if (parsed) {
-          let injectedNodes = 0;
-          let injectedEdges = 0;
-          let injectedFiles = 0;
-
-          if (parsed.nodes && Array.isArray(parsed.nodes)) {
-            const nodesToInject: Record<string, any> = {};
-            const edgesToInject: Record<string, any> = {};
-            
-            const baseX = Math.floor(Math.random() * 300) + 100;
-            const baseY = Math.floor(Math.random() * 300) + 100;
-
-            parsed.nodes.forEach((n: any, index: number) => {
-              const id = n.id || 'node_ai_' + Math.random().toString(36).substr(2, 9);
-              nodesToInject[id] = {
-                id,
-                type: n.type || 'Data',
-                position: { x: baseX + (n.position?.x || index * 300), y: baseY + (n.position?.y || index * 100) },
-                metadata: n.metadata || { title: 'AI Node', content: '' },
-                ternaryState: 'UNKNOWN'
-              };
-              injectedNodes++;
-            });
-
-            parsed.edges?.forEach((e: any) => {
-              const edgeId = 'edge_' + e.sourceId + '_' + e.targetId;
-              edgesToInject[edgeId] = {
-                id: edgeId,
-                sourceId: e.sourceId,
-                targetId: e.targetId
-              };
-              injectedEdges++;
-            });
-
-            this.engine.mutate({ nodes: nodesToInject, edges: edgesToInject });
-          }
-
-          if (parsed.files && Array.isArray(parsed.files)) {
-            parsed.files.forEach((f: any) => {
-              if (f.path && f.content !== undefined) {
-                this.vfs.writeFile(f.path, f.content);
-                injectedFiles++;
-              }
-            });
-          }
-
-          if (injectedNodes > 0 || injectedEdges > 0 || injectedFiles > 0) {
-            this.terminal.log(`[EDEN MODE] Auto-injected ${injectedNodes} nodes, ${injectedEdges} edges, and ${injectedFiles} files from AI.`, 'SYSTEM');
-          }
-        }
-      }
-    } catch (e) {
-      // Not JSON or invalid JSON, ignore. It was just a text response.
     }
   }
 }

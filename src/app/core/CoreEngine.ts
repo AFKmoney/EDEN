@@ -61,7 +61,7 @@ export class CoreEngine {
     
     this.state.update(current => {
       let history = current.history;
-      let historyIndex = current.historyIndex;
+      const historyIndex = current.historyIndex;
 
       // If we are at the very end of our actions, we need to save the current state 
       // as a snapshot so we can redo back to it, ONLY if it's not already saved.
