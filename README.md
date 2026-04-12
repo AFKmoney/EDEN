@@ -1,62 +1,80 @@
-# EDEN — Visual AI Graph IDE
+# EDEN — The Visual AI Graph IDE
 
-Welcome to **EDEN**, the nexus of graphical programming and autonomous AI pipeline integration. EDEN is a Visual Graph IDE running on a Ternary Virtual Machine (Kleene logic) and deeply integrated with `qwen` and `gemini` CLIs to allow for complete autonomous generation.
+![EDEN Banner](https://img.shields.io/badge/EDEN-Matrix-blueviolet?style=for-the-badge&logo=matrix)
+![Angular 21](https://img.shields.io/badge/Angular-21+-DD0031?style=for-the-badge&logo=angular)
+![Express](https://img.shields.io/badge/Express-Backend-000000?style=for-the-badge&logo=express)
+![Status](https://img.shields.io/badge/Status-Hardened_v3.1.0-green?style=for-the-badge)
+
+Welcome to **EDEN**, a next-generation Visual Graph IDE designed for autonomous AI pipeline integration and logic orchestration. EDEN runs on a custom **Ternary Virtual Machine** (Kleene logic) and provides a premium, glassmorphic environment where humans and AI agents collaborate in real-time.
+
+---
 
 ## 🚀 Key Features
 
-*   **Ternary Virtual Machine:** Execute logic based on TRUE, FALSE, and UNKNOWN values natively mapped to the UI.
-*   **VFS (Virtual File System):** In-memory file storage allowing for full file uploads, downloads, exporting entirely as a JSON bundle, and drag-and-drop support.
-*   **AI Integration (Qwen & Gemini):** Deep integration allowing models to completely write components, alter the UI, read from VFS, and manage edges and nodes directly via JSON mapping.
-*   **Server-Side Execution & Hardening:** Includes a full SSR Node.js configuration to manage CLI sub-processes effectively without fear of injection, complete with SSE streaming capabilities.
-*   **YOLO Mode:** Fully autonomous. The AI will make real-time decisions without waiting for confirmation.
-*   **Glassmorphism Neon UI** Built with advanced Angular and pure CSS motion effects.
+### 🧠 Autonomous Agentic Loop (CoT)
+Harness the power of `Qwen` and `Gemini` in full autonomy. The **Agentic Loop** allows models to evaluate the current state, reason about their next moves (via built-in Chain-of-Thought), and execute mutations on the graph or the file system recursively.
+
+### 💠 Ternary Virtual Machine
+Beyond Binary. EDEN implements a **Ternary VM** executing logic across `TRUE`, `FALSE`, and `UNKNOWN` states. Design complex logic gates (AND, OR, NOT) that handle uncertainty natively.
+
+### 📂 Virtual File System (VFS)
+A high-performance, in-memory file system with full persistence.
+- Drag-and-drop file support.
+- JSON bundle export/import.
+- AI-driven file manipulation.
+
+### 🎨 Glassmorphism Neon UI
+Built with **Angular 21** and **Tailwind CSS v4**, EDEN offers a stunning, professional-grade interface with advanced motion effects, glass textures, and real-time visual feedback for AI reasoning.
 
 ---
 
-## 💻 Tech Stack
+## 🛠 Tech Stack
 
-- **Angular 21 (SSR)**
-- **Tailwind CSS v4** + Neon CSS Variables
-- **Express Backend** `/api/cli`
-- Node.js `child_process.spawn` for CLI Integration
+- **Frontend**: Angular 21 (Standalone Components, SSR), RxJS, Signals.
+- **Styling**: Vanilla CSS + Tailwind CSS v4 (Neon Variables).
+- **Backend**: Node.js / Express (Process hardening, SSE streaming).
+- **Agents**: Integrated `qwen` and `gemini` CLI tools.
 
 ---
 
-## 🛠 Usage & Setup
+## 🏁 Quick Start
 
-### 1. Install Dependencies
+### 1. Installation
 ```bash
+# Clone the nexus
+git clone https://github.com/AFKmoney/EDEN.git
+cd EDEN/EDEN
+
+# Install neural dependencies
 npm install
 ```
 
-### 2. Boot the Nexus
+### 2. Ignition
 ```bash
+# Start the engine
 npm run dev
 ```
+Navigate to `http://localhost:3000` to enter the EDEN Matrix.
 
-### 3. Open your browser
-Go to `http://localhost:3000` to dive into the OS. 
-
-From here, press `Ctrl+Space` to inject an intent or interact with the Terminal manually.
-
-### 4. Running the CLIs
-
-You can call the Qwen or Gemini agentic engines from the Terminal natively:
-```bash
-/qwen create a new node and connect it to a data node
-/gemini analyze the current layout
-```
+### 3. Basic Commands
+- `Ctrl + Space`: Open prompt bar.
+- `F4`: Toggle CLI Panel / Agent Tracker.
+- `/qwen <intent>`: Trigger a single-shot mutation.
+- `/agent qwen <objective>`: Launch an autonomous agentic loop.
 
 ---
 
-## 🔒 Security Audit & Updates (v3.0.0)
-EDEN has recently undergone a comprehensive architecture overhaul and audit:
-1. Replaced vulnerable `npx` logic with direct `spawn` capabilities mapping natively to globally installed `qwen`/`gemini` tools.
-2. Added comprehensive `setTimeout` killers at the backend level.
-3. Isolated OS arguments from shell manipulation.
-4. Added real-time SSE endpoints at `/api/cli/stream` for raw output viewing.
-5. Allowed deep VFS sync so AI handles the backend files without affecting the OS itself.
+## 📚 Documentation & Manual
+
+- 📖 **[User Manual](docs/MANUAL.md)**: Master the interface and commands.
+- ⚙️ **[Technical Documentation](docs/DOCUMENTATION.md)**: Deep dive into the architecture and VM logic.
 
 ---
 
-**Developed for the ZMSFA Core**
+## 🔒 Security Audit (v3.1.0)
+EDEN is hardened for autonomous operations:
+1. **Isolated Execution**: All CLI tools run in hardened sub-processes with 120s timeout killers.
+2. **Sanitized Inputs**: Zero-injection risk via strict argument mapping.
+3. **Type-Safe Core**: Refined TypeScript architecture with "Zero-Error" linting coverage.
+
+*Developed for the ZMSFA Core*
