@@ -28,15 +28,17 @@ import { EdenAiPipelineService, AiMode } from '../core/EdenAiPipelineService';
         <!-- Body -->
         <div class="p-4 flex flex-col gap-4">
           <!-- Engine Selector -->
-          <div class="flex gap-2 p-1 bg-black/40 rounded-lg border border-white/5">
-            <button (click)="selectedEngine.set('qwen')" 
-                    [ngClass]="selectedEngine() === 'qwen' ? 'bg-purple-500/20 text-purple-300 border-purple-500/50' : 'text-gray-500 border-transparent hover:text-gray-300'"
-                    class="flex-1 py-1.5 rounded-md font-mono text-xs font-bold border transition-all cursor-pointer">
-              QWEN
+          <div class="flex gap-2 p-1 bg-black/40 rounded-lg border border-white/5 backdrop-blur-3xl shadow-[0_0_15px_rgba(255,255,255,0.05)]">
+            <button (click)="selectedEngine.set('local')"
+                    [ngClass]="selectedEngine() === 'local' ? 'bg-purple-500/20 text-purple-300 border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.4)]' : 'text-gray-500 border-transparent hover:text-gray-300 bg-white/5 hover:bg-white/10'"
+                    class="flex-1 py-1.5 rounded-md font-mono text-xs font-bold border transition-all cursor-pointer flex items-center justify-center gap-2">
+              <mat-icon *ngIf="selectedEngine() === 'local'" class="animate-pulse" style="font-size: 14px; width: 14px; height: 14px;">memory</mat-icon>
+              LOCAL
             </button>
             <button (click)="selectedEngine.set('gemini')" 
-                    [ngClass]="selectedEngine() === 'gemini' ? 'bg-blue-500/20 text-blue-300 border-blue-500/50' : 'text-gray-500 border-transparent hover:text-gray-300'"
-                    class="flex-1 py-1.5 rounded-md font-mono text-xs font-bold border transition-all cursor-pointer">
+                    [ngClass]="selectedEngine() === 'gemini' ? 'bg-blue-500/20 text-blue-300 border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.4)]' : 'text-gray-500 border-transparent hover:text-gray-300 bg-white/5 hover:bg-white/10'"
+                    class="flex-1 py-1.5 rounded-md font-mono text-xs font-bold border transition-all cursor-pointer flex items-center justify-center gap-2">
+              <mat-icon *ngIf="selectedEngine() === 'gemini'" class="animate-pulse" style="font-size: 14px; width: 14px; height: 14px;">cloud</mat-icon>
               GEMINI
             </button>
           </div>
@@ -144,7 +146,7 @@ export class CliPanel {
   public ui = inject(CliUiService);
   public pipeline = inject(EdenAiPipelineService);
 
-  selectedEngine = signal<'qwen' | 'gemini'>('qwen');
+  selectedEngine = signal<'local' | 'gemini'>('local');
   lastOutput = signal<string>('');
   lastError = signal<string>('');
 

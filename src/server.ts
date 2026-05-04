@@ -6,7 +6,7 @@ import {
 } from '@angular/ssr/node';
 import express from 'express';
 import {join} from 'node:path';
-import { spawn } from 'node:child_process';
+import { GoogleGenAI } from '@google/genai';
 
 const browserDistFolder = join(import.meta.dirname, '../browser');
 
@@ -15,109 +15,134 @@ const angularApp = new AngularNodeAppEngine();
 
 app.use(express.json({ limit: '10mb' }));
 
+// Initialize Gemini Client
+const ai = new GoogleGenAI({ apiKey: process.env['GEMINI_API_KEY'] || 'fake-key' });
+
 /**
- * Execute a CLI command with timeout and sanitization.
- * Uses spawn instead of exec for better security and streaming capability.
+ * Execute an API command for local (Ollama) or Gemini models.
  */
-function executeCli(
-  tool: 'qwen' | 'gemini',
+async function executeApi(
+  tool: 'local' | 'gemini',
   args: string,
   mode: string,
-  timeoutMs = 120000
 ): Promise<{ stdout: string; stderr: string }> {
-  return new Promise((resolve, reject) => {
-    let finalArgs: string[] = [];
+  try {
+    if (tool === 'local') {
+      // Local model (Ollama API compatible)
+      // Defaults to using standard format: http://127.0.0.1:11434/api/generate
+      const payload = {
+        model: process.env['LOCAL_MODEL'] || 'qwen2.5-coder', // defaulting to a coder model
+        prompt: args,
+        stream: false,
+      };
 
-    // Build argument list based on mode
-    if (mode === 'raw') {
-      // Raw mode: pass arguments directly (for --version, --help, etc.)
-      finalArgs = args.split(/\s+/).filter(Boolean);
-    } else {
-      // EDEN/YOLO/Plan mode: wrap as a prompt
-      const isAlreadyFlagged = args.startsWith('-') || args.startsWith('--');
+      const localApiUrl = process.env['LOCAL_API_URL'] || 'http://127.0.0.1:11434/api/generate';
+      const response = await fetch(localApiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
 
-      if (isAlreadyFlagged) {
-        finalArgs = args.split(/\s+/).filter(Boolean);
-      } else {
-        // Build prompt with mode-specific flags
-        if (tool === 'qwen') {
-          finalArgs = ['--auth-type', 'gemini'];
-          if (mode === 'yolo') {
-            finalArgs.push('--approval-mode', 'yolo');
-          } else if (mode === 'plan') {
-            finalArgs.push('--approval-mode', 'plan');
-          }
-          finalArgs.push('-p', args);
-          finalArgs.push('-o', 'text');
-        } else if (tool === 'gemini') {
-          if (mode === 'yolo') {
-            finalArgs.push('--approval-mode', 'yolo');
-          } else if (mode === 'plan') {
-            finalArgs.push('--approval-mode', 'plan');
-          }
-          finalArgs.push('-p', args);
-          finalArgs.push('-o', 'text');
-        }
+      if (!response.ok) {
+        throw new Error(`Local API error: ${response.statusText}`);
       }
+
+      const data = await response.json();
+      return { stdout: data.response || data.message?.content || JSON.stringify(data), stderr: '' };
+    } else if (tool === 'gemini') {
+      // Gemini API
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: args,
+      });
+
+      return { stdout: response.text || '', stderr: '' };
     }
+  } catch (e: any) {
+    return { stdout: '', stderr: e.message || 'Unknown error occurred' };
+  }
 
-    let stdout = '';
-    let stderr = '';
-    let killed = false;
-
-    // Use the globally installed CLI directly (not npx)
-    const child = spawn(tool, finalArgs, {
-      shell: true,
-      timeout: timeoutMs,
-      env: { ...process.env },
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
-
-    child.stdout.on('data', (data: Buffer) => {
-      stdout += data.toString();
-    });
-
-    child.stderr.on('data', (data: Buffer) => {
-      stderr += data.toString();
-    });
-
-    // Timeout safety net
-    const timer = setTimeout(() => {
-      killed = true;
-      child.kill('SIGTERM');
-      setTimeout(() => {
-        if (!child.killed) child.kill('SIGKILL');
-      }, 5000);
-    }, timeoutMs);
-
-    child.on('close', (code: number | null) => {
-      clearTimeout(timer);
-      if (killed) {
-        reject(new Error(`CLI process timed out after ${timeoutMs / 1000}s and was killed.`));
-      } else if (code !== 0 && code !== null) {
-        // Non-zero exit but still return output
-        resolve({ stdout, stderr: stderr || `Process exited with code ${code}` });
-      } else {
-        resolve({ stdout, stderr });
-      }
-    });
-
-    child.on('error', (err: Error) => {
-      clearTimeout(timer);
-      reject(err);
-    });
-  });
+  return { stdout: '', stderr: 'Invalid tool' };
 }
 
 /**
- * API Route to execute CLI tools (qwen / gemini)
+ * Execute an API command for local or Gemini models with SSE Streaming.
+ */
+async function executeApiStream(
+  tool: 'local' | 'gemini',
+  args: string,
+  mode: string,
+  onData: (text: string) => void,
+  onError: (error: string) => void,
+  onComplete: () => void
+) {
+  try {
+    if (tool === 'local') {
+      const payload = {
+        model: process.env['LOCAL_MODEL'] || 'qwen2.5-coder',
+        prompt: args,
+        stream: true,
+      };
+
+      const localApiUrl = process.env['LOCAL_API_URL'] || 'http://127.0.0.1:11434/api/generate';
+      const response = await fetch(localApiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) throw new Error(`Local API error: ${response.statusText}`);
+      if (!response.body) throw new Error('No response body');
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        // Simple line splitting to handle multiple JSON objects in one chunk
+        const lines = chunk.split('\n').filter(l => l.trim() !== '');
+        for (const line of lines) {
+           try {
+              const data = JSON.parse(line);
+              const text = data.response || data.message?.content || '';
+              if (text) onData(text);
+           } catch(e) {
+              // Not JSON, just pass it through
+              onData(line);
+           }
+        }
+      }
+      onComplete();
+    } else if (tool === 'gemini') {
+      const responseStream = await ai.models.generateContentStream({
+        model: 'gemini-2.5-flash',
+        contents: args,
+      });
+
+      for await (const chunk of responseStream) {
+        if (chunk.text) {
+          onData(chunk.text);
+        }
+      }
+      onComplete();
+    }
+  } catch (e: any) {
+    onError(e.message || 'Stream failed');
+  }
+}
+
+
+/**
+ * API Route to execute CLI tools (local / gemini)
  * Supports modes: eden, raw, plan, yolo (default: yolo)
  */
 app.post('/api/cli', async (req, res) => {
   const { tool, args, mode = 'yolo' } = req.body;
   
-  if (!['qwen', 'gemini'].includes(tool)) {
-    res.status(400).json({ error: 'Invalid tool. Only qwen and gemini are allowed.' });
+  if (!['local', 'gemini'].includes(tool)) {
+    res.status(400).json({ error: 'Invalid tool. Only local and gemini are allowed.' });
     return;
   }
 
@@ -127,12 +152,12 @@ app.post('/api/cli', async (req, res) => {
   }
 
   try {
-    const { stdout, stderr } = await executeCli(tool, args || '', mode);
+    const { stdout, stderr } = await executeApi(tool, args || '', mode);
     res.json({ stdout, stderr });
   } catch (error: unknown) {
     const err = error as { message?: string; stdout?: string; stderr?: string };
     res.status(500).json({ 
-      error: err.message || 'CLI execution failed',
+      error: err.message || 'API execution failed',
       stdout: err.stdout || '',
       stderr: err.stderr || ''
     });
@@ -140,12 +165,12 @@ app.post('/api/cli', async (req, res) => {
 });
 
 /**
- * API Route: True SSE streaming for CLI execution
+ * API Route: True SSE streaming for API execution
  */
-app.post('/api/cli/stream', (req, res) => {
+app.post('/api/cli/stream', async (req, res) => {
   const { tool, args, mode = 'yolo' } = req.body;
   
-  if (!['qwen', 'gemini'].includes(tool)) {
+  if (!['local', 'gemini'].includes(tool)) {
     res.status(400).end();
     return;
   }
@@ -154,52 +179,22 @@ app.post('/api/cli/stream', (req, res) => {
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
 
-  let finalArgs: string[] = [];
-
-  if (mode === 'raw') {
-    finalArgs = args.split(/\s+/).filter(Boolean);
-  } else {
-    const isAlreadyFlagged = args.startsWith('-') || args.startsWith('--');
-    if (isAlreadyFlagged) {
-      finalArgs = args.split(/\s+/).filter(Boolean);
-    } else {
-      if (tool === 'qwen') {
-        finalArgs = ['--auth-type', 'gemini'];
-        if (mode === 'yolo') finalArgs.push('--approval-mode', 'yolo');
-        else if (mode === 'plan') finalArgs.push('--approval-mode', 'plan');
-        finalArgs.push('-p', args, '-o', 'text');
-      } else if (tool === 'gemini') {
-        if (mode === 'yolo') finalArgs.push('--approval-mode', 'yolo');
-        else if (mode === 'plan') finalArgs.push('--approval-mode', 'plan');
-        finalArgs.push('-p', args, '-o', 'text');
-      }
+  await executeApiStream(
+    tool,
+    args,
+    mode,
+    (text) => {
+      res.write(`data: ${JSON.stringify({ stdout: text })}\n\n`);
+    },
+    (err) => {
+      res.write(`data: ${JSON.stringify({ error: err })}\n\n`);
+      res.end();
+    },
+    () => {
+      res.write(`data: ${JSON.stringify({ done: true, code: 0 })}\n\n`);
+      res.end();
     }
-  }
-
-  const child = spawn(tool, finalArgs, {
-    shell: true,
-    timeout: 120000,
-    env: { ...process.env },
-    stdio: ['pipe', 'pipe', 'pipe']
-  });
-
-  child.stdout.on('data', (data: Buffer) => {
-    res.write(`data: ${JSON.stringify({ stdout: data.toString() })}\n\n`);
-  });
-
-  child.stderr.on('data', (data: Buffer) => {
-    res.write(`data: ${JSON.stringify({ stderr: data.toString() })}\n\n`);
-  });
-
-  child.on('error', (err: Error) => {
-    res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
-    res.end();
-  });
-
-  child.on('close', (code: number | null) => {
-    res.write(`data: ${JSON.stringify({ done: true, code })}\n\n`);
-    res.end();
-  });
+  );
 });
 
 /**
@@ -208,16 +203,16 @@ app.post('/api/cli/stream', (req, res) => {
 app.get('/api/cli/capabilities', (_req, res) => {
   res.json({
     engines: {
-      qwen: {
-        name: 'Qwen Code',
+      local: {
+        name: 'Local Model',
         modes: ['eden', 'raw', 'plan', 'yolo'],
-        flags: ['--version', '--help', '--model', '-p', '--approval-mode', '--auth-type', '-o'],
+        flags: [],
         defaultMode: 'yolo'
       },
       gemini: {
-        name: 'Gemini CLI',
+        name: 'Gemini API',
         modes: ['eden', 'raw', 'plan', 'yolo'],
-        flags: ['--version', '--help', '--model', '-p', '--approval-mode', '-o', '--autonomous'],
+        flags: [],
         defaultMode: 'yolo'
       }
     },
