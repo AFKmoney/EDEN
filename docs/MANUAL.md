@@ -27,8 +27,8 @@ This manual provides the operational knowledge needed to manipulate the EDEN env
 The Terminal is your primary interface for commanding AI agents.
 
 ### Core Commands
-- `/qwen <prompt>`: Single-shot mutation. The AI will analyze your intent and add nodes/edges/files once.
-- `/gemini <prompt>`: Same as Qwen but uses the Gemini model.
+- `/local <prompt>`: Single-shot mutation. The AI will analyze your intent and add nodes/edges/files once.
+- `/gemini <prompt>`: Same as Local but uses the Gemini model.
 - `/clear`: Wipes the terminal history.
 - `/help`: Displays basic command syntax.
 
@@ -46,7 +46,7 @@ The Agentic Loop is EDEN's most powerful feature. It allows the AI to work recur
 
 ### How to Start
 Type `/agent <model> <objective>` in the Terminal.
-*Example:* `/agent qwen Create a full authentication system with three UI nodes, two logic gates, and a README in the VFS.`
+*Example:* `/agent local Create a full authentication system with three UI nodes, two logic gates, and a README in the VFS.`
 
 ### Monitoring the Loop
 Once started, the **CLI Panel** (Agentic Tracker) will open:

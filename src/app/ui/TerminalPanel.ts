@@ -47,7 +47,10 @@ import { EdenAiPipelineService } from '../core/EdenAiPipelineService';
               [{{ log.level }}]
             </span>
             <span class="text-gray-300 whitespace-pre-wrap break-words font-mono"
-                  [ngClass]="{'text-red-300 font-bold': log.message.startsWith('[AGENT]')}">
+                  [ngClass]="{
+                    'text-red-300 font-bold': log.message.startsWith('[AGENT]'),
+                    'bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400': log.level === 'SYSTEM' && log.message.includes('LOCAL')
+                  }">
               {{ log.message }}
             </span>
           </div>
@@ -64,7 +67,7 @@ import { EdenAiPipelineService } from '../core/EdenAiPipelineService';
           #cmdInput
           type="text" 
           class="flex-1 bg-transparent border-none outline-none text-white font-mono text-xs"
-          placeholder="Type a command (e.g. /qwen create a node, /gemini analyze graph, clear)..."
+          placeholder="Type a command (e.g. /local create a node, /gemini analyze graph, clear)..."
           (keydown.enter)="executeCommand(cmdInput.value); cmdInput.value = ''"
           [disabled]="pipeline.isExecuting()"
         />
@@ -102,26 +105,26 @@ export class TerminalPanel implements AfterViewChecked {
       return;
     }
 
-    let engineName: 'qwen' | 'gemini' | null = null;
+    let engineName: 'local' | 'gemini' | null = null;
     let args = '';
     let isAgentic = false;
 
-    if (trimmed.startsWith('/agent qwen ') || trimmed === '/agent qwen') {
-      engineName = 'qwen';
-      args = trimmed.replace('/agent qwen', '').trim();
+    if (trimmed.startsWith('/agent local ') || trimmed === '/agent local') {
+      engineName = 'local';
+      args = trimmed.replace('/agent local', '').trim();
       isAgentic = true;
     } else if (trimmed.startsWith('/agent gemini ') || trimmed === '/agent gemini') {
       engineName = 'gemini';
       args = trimmed.replace('/agent gemini', '').trim();
       isAgentic = true;
-    } else if (trimmed.startsWith('/qwen ') || trimmed === '/qwen') {
-      engineName = 'qwen';
-      args = trimmed.replace('/qwen', '').trim();
+    } else if (trimmed.startsWith('/local ') || trimmed === '/local') {
+      engineName = 'local';
+      args = trimmed.replace('/local', '').trim();
     } else if (trimmed.startsWith('/gemini ') || trimmed === '/gemini') {
       engineName = 'gemini';
       args = trimmed.replace('/gemini', '').trim();
     } else {
-      this.terminal.log(`Command not found: ${trimmed}. Try /qwen <cmd>, /gemini <cmd>, or /agent <qwen|gemini> <objective>`, 'ERROR');
+      this.terminal.log(`Command not found: ${trimmed}. Try /local <cmd>, /gemini <cmd>, or /agent <local|gemini> <objective>`, 'ERROR');
       return;
     }
 
