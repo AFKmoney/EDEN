@@ -12,7 +12,7 @@ Welcome to **EDEN**, a next-generation Visual Graph IDE designed for autonomous 
 ## 🚀 Key Features
 
 ### 🧠 Autonomous Agentic Loop (CoT)
-Harness the power of `Qwen` and `Gemini` in full autonomy. The **Agentic Loop** allows models to evaluate the current state, reason about their next moves (via built-in Chain-of-Thought), and execute mutations on the graph or the file system recursively.
+Harness the power of `Local` and `Gemini` in full autonomy. The **Agentic Loop** allows models to evaluate the current state, reason about their next moves (via built-in Chain-of-Thought), and execute mutations on the graph or the file system recursively.
 
 ### 💠 Ternary Virtual Machine
 Beyond Binary. EDEN implements a **Ternary VM** executing logic across `TRUE`, `FALSE`, and `UNKNOWN` states. Design complex logic gates (AND, OR, NOT) that handle uncertainty natively.
@@ -33,7 +33,7 @@ Built with **Angular 21** and **Tailwind CSS v4**, EDEN offers a stunning, profe
 - **Frontend**: Angular 21 (Standalone Components, SSR), RxJS, Signals.
 - **Styling**: Vanilla CSS + Tailwind CSS v4 (Neon Variables).
 - **Backend**: Node.js / Express (Process hardening, SSE streaming).
-- **Agents**: Integrated `qwen` and `gemini` CLI tools.
+- **Agents**: Integrated `local` and `gemini` CLI tools.
 
 ---
 
@@ -59,8 +59,8 @@ Navigate to `http://localhost:3000` to enter the EDEN Matrix.
 ### 3. Basic Commands
 - `Ctrl + Space`: Open prompt bar.
 - `F4`: Toggle CLI Panel / Agent Tracker.
-- `/qwen <intent>`: Trigger a single-shot mutation.
-- `/agent qwen <objective>`: Launch an autonomous agentic loop.
+- `/local <intent>`: Trigger a single-shot mutation.
+- `/agent local <objective>`: Launch an autonomous agentic loop.
 
 ---
 

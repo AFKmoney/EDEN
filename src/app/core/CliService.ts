@@ -11,7 +11,7 @@ export interface CliResponse {
  * CliService — HTTP client for the EDEN CLI backend API.
  * 
  * Communicates with the Express server's /api/cli endpoint to execute
- * Qwen and Gemini CLI tools. Supports different execution modes
+ * Local and Gemini CLI tools. Supports different execution modes
  * (eden, raw, plan, yolo) that control how the CLI is invoked.
  */
 @Injectable({ providedIn: 'root' })
@@ -19,11 +19,11 @@ export class CliService {
 
   /**
    * Execute a CLI command against the server.
-   * @param tool - Which CLI to invoke ('qwen' or 'gemini')
+   * @param tool - Which CLI to invoke ('local' or 'gemini')
    * @param args - The arguments/prompt to pass
    * @param mode - Execution mode (eden, raw, plan, yolo)
    */
-  async execute(tool: 'qwen' | 'gemini', args: string = '', mode: AiMode = 'yolo'): Promise<CliResponse> {
+  async execute(tool: 'local' | 'gemini', args: string = '', mode: AiMode = 'yolo'): Promise<CliResponse> {
     try {
       const response = await fetch('/api/cli', {
         method: 'POST',
@@ -43,7 +43,7 @@ export class CliService {
    * Execute a CLI command and stream the response via SSE fetch reader.
    * Updates UI continuously as chunks arrive.
    */
-  async *executeStream(tool: 'qwen' | 'gemini', args: string = '', mode: AiMode = 'yolo'): AsyncGenerator<any, void, unknown> {
+  async *executeStream(tool: 'local' | 'gemini', args: string = '', mode: AiMode = 'yolo'): AsyncGenerator<any, void, unknown> {
     try {
       const response = await fetch('/api/cli/stream', {
         method: 'POST',

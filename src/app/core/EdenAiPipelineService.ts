@@ -58,7 +58,8 @@ export class EdenAiPipelineService {
 
     const filesCompact = files.map(f => ({
       path: f.path,
-      size: f.content.length
+      size: f.content.length,
+      content: f.content.length > 500 ? f.content.substring(0, 500) + '...[TRUNCATED]' : f.content
     }));
 
     return `You are an EDEN architecture AI with FULL CONTROL of the EDEN graph IDE.
@@ -91,11 +92,20 @@ If the user is just asking a question, respond normally in text (no JSON block).
   /**
    * Build the Evaluation context for the Agentic Loop.
    */
-  buildAgenticContext(objective: string): string {
+  buildAgenticContext(objective: string, previousError?: string): string {
     const baseContext = this.buildEdenContext();
+    let errorContext = '';
+
+    if (previousError) {
+      errorContext = `\n[ANTI-BAD BEHAVIOUR FRAMEWORK WARNING]:
+The previous iteration failed with the following error:
+"${previousError}"
+You MUST correct this error in your next response. Ensure your JSON format is strictly valid and matches the requested structure.`;
+    }
+
     return `${baseContext}
 AGENCY OBJECTIVE (EVALUATION PHASE): 
-You are inside an autonomous evaluator loop. Your ultimate goal is: "${objective}".
+You are inside an autonomous evaluator loop. Your ultimate goal is: "${objective}".${errorContext}
 
 Evaluate the CURRENT STATE of the graph and VFS against this objective. 
 - Have you fully achieved the objective?
@@ -114,7 +124,7 @@ User request: Evaluate state and proceed.`;
     }
   }
 
-  async executeAgenticLoop(engineName: 'qwen' | 'gemini', objective: string, maxIterations = 5) {
+  async executeAgenticLoop(engineName: 'local' | 'gemini', objective: string, maxIterations = 5) {
     if (this.isAgenticLoopActive() || this.isExecuting()) return;
 
     this.isAgenticLoopActive.set(true);
@@ -124,6 +134,7 @@ User request: Evaluate state and proceed.`;
     this.terminal.log(`[AGENT] Starting autonomous evaluation loop with ${engineName.toUpperCase()} for objective: "${objective}"`, 'SYSTEM');
 
     let iteration = 0;
+    let previousError = '';
 
     try {
       while (iteration < maxIterations && !this.abortRequested) {
@@ -131,7 +142,9 @@ User request: Evaluate state and proceed.`;
         this.agenticIteration.set(iteration);
         this.terminal.log(`[AGENT] Iteration ${iteration}/${maxIterations} - Analyzing state...`, 'INFO');
 
-        const prompt = this.buildAgenticContext(objective);
+        const prompt = this.buildAgenticContext(objective, previousError);
+        previousError = ''; // reset after using
+
         // Force YOLO mode strictly for agentic evaluation inner loops to prevent interaction blocks
         const res = await this.cli.execute(engineName, prompt, 'yolo');
 
@@ -153,10 +166,18 @@ User request: Evaluate state and proceed.`;
         } else {
           this.terminal.log(`[AGENT] Evaluation result: INCOMPLETE. Mutating state...`, 'INFO');
           // Parse and inject
-          const injected = this.tryInjectFromOutput(out);
-          if (!injected && iteration === 1) {
-             // If first iteration didn't inject anything and didn't complete, it might have responded in text
-             this.terminal.log(`[AGENT] AI output did not contain valid mutations. Evaluating again next cycle.`, 'WARN');
+          try {
+            const injected = this.tryInjectFromOutput(out);
+            if (!injected && iteration === 1) {
+               // If first iteration didn't inject anything and didn't complete, it might have responded in text
+               this.terminal.log(`[AGENT] AI output did not contain valid mutations. Evaluating again next cycle.`, 'WARN');
+               previousError = "ERROR: Failed to inject mutations. Ensure you are outputting the exact requested JSON format with 'nodes', 'edges', or 'files'.";
+            } else if (!injected) {
+               previousError = "ERROR: Output lacked valid JSON mutations. Please correct format.";
+            }
+          } catch (e: any) {
+            this.terminal.log(`[AGENT] Injection failed: ${e.message}`, 'WARN');
+            previousError = `ERROR: Invalid JSON or mutation structure. ${e.message}`;
           }
           
           // Wait briefly to allow UI to visually update
@@ -180,7 +201,7 @@ User request: Evaluate state and proceed.`;
 
   // --- STANDARD EXECUTION ---
 
-  async execute(engineName: 'qwen' | 'gemini', userPrompt: string): Promise<{ stdout: string; stderr: string; error: string }> {
+  async execute(engineName: 'local' | 'gemini', userPrompt: string): Promise<{ stdout: string; stderr: string; error: string }> {
     this.isExecuting.set(true);
     this.terminal.log(`[EDEN Pipeline] Starting ${engineName} in ${this.mode()} mode...`, 'SYSTEM');
 
@@ -224,7 +245,7 @@ User request: Evaluate state and proceed.`;
     return result;
   }
 
-  async executeRaw(engineName: 'qwen' | 'gemini', args: string): Promise<{ stdout: string; stderr: string; error: string }> {
+  async executeRaw(engineName: 'local' | 'gemini', args: string): Promise<{ stdout: string; stderr: string; error: string }> {
     this.isExecuting.set(true);
     this.terminal.log(`[CLI Raw] ${engineName} ${args}`, 'SYSTEM');
 
@@ -257,7 +278,9 @@ User request: Evaluate state and proceed.`;
       const startIndex = jsonStr.indexOf('{');
       const endIndex = jsonStr.lastIndexOf('}');
 
-      if (startIndex === -1 || endIndex === -1) return false;
+      if (startIndex === -1 || endIndex === -1) {
+        throw new Error("Could not find valid JSON block boundaries in response.");
+      }
 
       const cleanJson = jsonStr.substring(startIndex, endIndex + 1);
       const parsed = JSON.parse(cleanJson) as { 
@@ -268,7 +291,9 @@ User request: Evaluate state and proceed.`;
         completed?: boolean 
       };
 
-      if (!parsed) return false;
+      if (!parsed) {
+        throw new Error("Parsed JSON was null or undefined.");
+      }
 
       if (parsed.reasoning) {
         this.currentReasoning.set(parsed.reasoning);
