@@ -69,6 +69,13 @@ import { NodeFactory } from './NodeFactory';
              (pointerdown)="onOutputPortMouseDown($event)">
              <div class="w-2 h-2 rounded-full bg-[var(--color-eden-neon)] animate-pulse pointer-events-none"></div>
         </div>
+
+        <!-- Node Label (Bottom) -->
+        <div class="absolute -bottom-7 left-0 right-0 flex justify-center pointer-events-none">
+          <span class="text-[10px] font-mono text-gray-400 bg-[var(--color-eden-bg)] px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
+            {{ node().id }}
+          </span>
+        </div>
       </div>
     </div>
   `

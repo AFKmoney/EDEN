@@ -17,8 +17,7 @@ app.use(express.json({ limit: '10mb' }));
 
 // Initialize Gemini Client
 const ai = new GoogleGenAI({ 
-  apiKey: process.env['GEMINI_API_KEY'] || 'fake-key',
-  timeout: 120000 // 2 minutes timeout
+  apiKey: process.env['GEMINI_API_KEY'] || 'fake-key'
 });
 
 // Global request timeout for AI operations
@@ -83,7 +82,7 @@ async function executeApi(
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: args,
-      }, { signal: controller.signal });
+      });
 
       clearTimeout(timeoutId);
 
@@ -176,7 +175,7 @@ async function executeApiStream(
       const responseStream = await ai.models.generateContentStream({
         model: 'gemini-2.5-flash',
         contents: args,
-      }, { signal: controller.signal });
+      });
 
       clearTimeout(timeoutId);
 
@@ -305,7 +304,7 @@ app.get('/api/cli/capabilities', (_req, res) => {
       }
     },
     defaultMode: 'yolo',
-    timeoutMs: 120000
+    timeoutMs: AI_TIMEOUT_MS
   });
 });
 
