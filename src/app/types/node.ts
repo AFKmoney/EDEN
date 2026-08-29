@@ -14,4 +14,6 @@ export interface EdenNode {
   };
   state?: Record<string, any>;
   ternaryState: TernaryValue; // The core of the new robust backend execution
+  createdAt?: number;
+  updatedAt?: number;
 }

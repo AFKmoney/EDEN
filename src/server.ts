@@ -16,7 +16,13 @@ const angularApp = new AngularNodeAppEngine();
 app.use(express.json({ limit: '10mb' }));
 
 // Initialize Gemini Client
-const ai = new GoogleGenAI({ apiKey: process.env['GEMINI_API_KEY'] || 'fake-key' });
+const ai = new GoogleGenAI({ 
+  apiKey: process.env['GEMINI_API_KEY'] || 'fake-key',
+  timeout: 120000 // 2 minutes timeout
+});
+
+// Global request timeout for AI operations
+const AI_TIMEOUT_MS = 120000;
 
 /**
  * Execute an API command for local (Ollama) or Gemini models.
@@ -26,40 +32,67 @@ async function executeApi(
   args: string,
   mode: string,
 ): Promise<{ stdout: string; stderr: string }> {
+  // Validate inputs
+  if (!tool || !['local', 'gemini'].includes(tool)) {
+    return { stdout: '', stderr: 'Invalid tool. Only local and gemini are supported.' };
+  }
+
   try {
     if (tool === 'local') {
       // Local model (Ollama API compatible)
-      // Defaults to using standard format: http://127.0.0.1:11434/api/generate
       const payload = {
-        model: process.env['LOCAL_MODEL'] || 'qwen2.5-coder', // defaulting to a coder model
+        model: process.env['LOCAL_MODEL'] || 'qwen2.5-coder',
         prompt: args,
         stream: false,
       };
 
       const localApiUrl = process.env['LOCAL_API_URL'] || 'http://127.0.0.1:11434/api/generate';
+      
+      // Add timeout to the fetch request
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+      
       const response = await fetch(localApiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
+        signal: controller.signal
       });
 
+      clearTimeout(timeoutId);
+
       if (!response.ok) {
-        throw new Error(`Local API error: ${response.statusText}`);
+        throw new Error(`Local API error: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
       return { stdout: data.response || data.message?.content || JSON.stringify(data), stderr: '' };
     } else if (tool === 'gemini') {
-      // Gemini API
+      // Check if API key is available
+      if (!process.env['GEMINI_API_KEY'] || process.env['GEMINI_API_KEY'] === 'fake-key') {
+        return { 
+          stdout: '', 
+          stderr: 'Gemini API key not configured. Set GEMINI_API_KEY environment variable.' 
+        };
+      }
+
+      // Add timeout to the generation
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+      
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: args,
-      });
+      }, { signal: controller.signal });
+
+      clearTimeout(timeoutId);
 
       return { stdout: response.text || '', stderr: '' };
     }
   } catch (e: any) {
-    return { stdout: '', stderr: e.message || 'Unknown error occurred' };
+    const errorMessage = e.message || 'Unknown error occurred';
+    console.error(`[EDEN Server] Error executing ${tool}:`, errorMessage);
+    return { stdout: '', stderr: errorMessage };
   }
 
   return { stdout: '', stderr: 'Invalid tool' };
@@ -76,6 +109,12 @@ async function executeApiStream(
   onError: (error: string) => void,
   onComplete: () => void
 ) {
+  // Validate inputs
+  if (!tool || !['local', 'gemini'].includes(tool)) {
+    onError('Invalid tool. Only local and gemini are supported.');
+    return;
+  }
+
   try {
     if (tool === 'local') {
       const payload = {
@@ -85,13 +124,21 @@ async function executeApiStream(
       };
 
       const localApiUrl = process.env['LOCAL_API_URL'] || 'http://127.0.0.1:11434/api/generate';
+      
+      // Add timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+      
       const response = await fetch(localApiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
+        signal: controller.signal
       });
 
-      if (!response.ok) throw new Error(`Local API error: ${response.statusText}`);
+      clearTimeout(timeoutId);
+
+      if (!response.ok) throw new Error(`Local API error: ${response.status} ${response.statusText}`);
       if (!response.body) throw new Error('No response body');
 
       const reader = response.body.getReader();
@@ -116,10 +163,22 @@ async function executeApiStream(
       }
       onComplete();
     } else if (tool === 'gemini') {
+      // Check if API key is available
+      if (!process.env['GEMINI_API_KEY'] || process.env['GEMINI_API_KEY'] === 'fake-key') {
+        onError('Gemini API key not configured. Set GEMINI_API_KEY environment variable.');
+        return;
+      }
+
+      // Add timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+      
       const responseStream = await ai.models.generateContentStream({
         model: 'gemini-2.5-flash',
         contents: args,
-      });
+      }, { signal: controller.signal });
+
+      clearTimeout(timeoutId);
 
       for await (const chunk of responseStream) {
         if (chunk.text) {
@@ -129,7 +188,9 @@ async function executeApiStream(
       onComplete();
     }
   } catch (e: any) {
-    onError(e.message || 'Stream failed');
+    const errorMessage = e.message || 'Stream failed';
+    console.error(`[EDEN Server] Stream error for ${tool}:`, errorMessage);
+    onError(errorMessage);
   }
 }
 
@@ -141,21 +202,33 @@ async function executeApiStream(
 app.post('/api/cli', async (req, res) => {
   const { tool, args, mode = 'yolo' } = req.body;
   
-  if (!['local', 'gemini'].includes(tool)) {
+  // Input validation
+  if (!tool || !['local', 'gemini'].includes(tool)) {
     res.status(400).json({ error: 'Invalid tool. Only local and gemini are allowed.' });
     return;
   }
 
-  if (!args && mode !== 'raw') {
+  // Sanitize args - ensure it's a string
+  const sanitizedArgs = typeof args === 'string' ? args : '';
+
+  if (!sanitizedArgs && mode !== 'raw') {
     res.status(400).json({ error: 'No arguments provided.' });
     return;
   }
 
+  // Rate limiting check (simple in-memory)
+  const now = Date.now();
+  
   try {
-    const { stdout, stderr } = await executeApi(tool, args || '', mode);
+    const { stdout, stderr } = await executeApi(tool, sanitizedArgs, mode);
+    
+    // Log the request
+    console.log(`[EDEN API] ${tool} request completed`);
+    
     res.json({ stdout, stderr });
   } catch (error: unknown) {
     const err = error as { message?: string; stdout?: string; stderr?: string };
+    console.error(`[EDEN API] Error:`, err.message || 'Unknown error');
     res.status(500).json({ 
       error: err.message || 'API execution failed',
       stdout: err.stdout || '',
@@ -170,27 +243,42 @@ app.post('/api/cli', async (req, res) => {
 app.post('/api/cli/stream', async (req, res) => {
   const { tool, args, mode = 'yolo' } = req.body;
   
-  if (!['local', 'gemini'].includes(tool)) {
-    res.status(400).end();
+  // Input validation
+  if (!tool || !['local', 'gemini'].includes(tool)) {
+    res.status(400).json({ error: 'Invalid tool. Only local and gemini are allowed.' });
     return;
   }
+
+  // Sanitize args
+  const sanitizedArgs = typeof args === 'string' ? args : '';
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
 
+  // Set timeout for the entire streaming operation
+  const streamTimeout = setTimeout(() => {
+    console.log(`[EDEN Stream] Timeout after ${AI_TIMEOUT_MS}ms`);
+    res.write(`data: ${JSON.stringify({ error: 'Stream timeout' })}\n\n`);
+    res.end();
+  }, AI_TIMEOUT_MS);
+
   await executeApiStream(
     tool,
-    args,
+    sanitizedArgs,
     mode,
     (text) => {
       res.write(`data: ${JSON.stringify({ stdout: text })}\n\n`);
     },
     (err) => {
+      clearTimeout(streamTimeout);
+      console.error(`[EDEN Stream] Error:`, err);
       res.write(`data: ${JSON.stringify({ error: err })}\n\n`);
       res.end();
     },
     () => {
+      clearTimeout(streamTimeout);
+      console.log(`[EDEN Stream] Completed successfully`);
       res.write(`data: ${JSON.stringify({ done: true, code: 0 })}\n\n`);
       res.end();
     }

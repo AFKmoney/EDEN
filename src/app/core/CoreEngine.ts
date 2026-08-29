@@ -210,12 +210,36 @@ export class CoreEngine {
     this.saveSnapshot();
     this.bumpActivity();
     this.state.update(current => {
+      const now = Date.now();
+      const nodes = { ...current.nodes };
+      
+      // Add timestamps to new nodes
+      if (mutation.nodes) {
+        for (const [id, node] of Object.entries(mutation.nodes)) {
+          if (!nodes[id]) {
+            nodes[id] = {
+              ...node,
+              createdAt: now,
+              updatedAt: now,
+              ternaryState: node.ternaryState || 'UNKNOWN'
+            };
+          } else {
+            nodes[id] = {
+              ...node,
+              updatedAt: now,
+              createdAt: nodes[id].createdAt || now
+            };
+          }
+        }
+      }
+      
       return {
         ...current,
-        nodes: { ...current.nodes, ...mutation.nodes },
+        nodes,
         edges: { ...current.edges, ...mutation.edges }
       };
     });
+    this.terminal.log(`Mutation applied: ${Object.keys(mutation.nodes || {}).length} nodes, ${Object.keys(mutation.edges || {}).length} edges`, 'SYSTEM');
   }
 
   public moveNode(id: string, x: number, y: number) {
@@ -224,7 +248,11 @@ export class CoreEngine {
       ...current,
       nodes: {
         ...current.nodes,
-        [id]: { ...current.nodes[id], position: { x, y } }
+        [id]: { 
+          ...current.nodes[id], 
+          position: { x, y },
+          updatedAt: Date.now()
+        }
       }
     }));
   }
@@ -235,6 +263,10 @@ export class CoreEngine {
 
   public addEdge(sourceId: string, targetId: string) {
     if (sourceId === targetId) return;
+    if (!this.state().nodes[sourceId] || !this.state().nodes[targetId]) {
+      this.terminal.log(`Cannot create edge: source or target node does not exist (${sourceId} -> ${targetId})`, 'WARN');
+      return;
+    }
     this.saveSnapshot();
     const edgeId = 'edge_' + sourceId + '_' + targetId;
     this.bumpActivity();
@@ -245,6 +277,7 @@ export class CoreEngine {
         [edgeId]: { id: edgeId, sourceId, targetId }
       }
     }));
+    this.terminal.log(`Edge created: ${sourceId} -> ${targetId}`, 'SYSTEM');
   }
 
   public deleteNode(nodeId: string) {
@@ -267,6 +300,7 @@ export class CoreEngine {
         edges: newEdges
       };
     });
+    this.terminal.log(`Node deleted: ${nodeId}`, 'SYSTEM');
   }
 
   public updateNodeTitle(nodeId: string, title: string) {
@@ -280,11 +314,16 @@ export class CoreEngine {
           ...current.nodes,
           [nodeId]: {
             ...current.nodes[nodeId],
-            metadata: { ...current.nodes[nodeId].metadata, title }
+            metadata: { 
+              ...current.nodes[nodeId].metadata, 
+              title 
+            },
+            updatedAt: Date.now()
           }
         }
       };
     });
+    this.terminal.log(`Node title updated: ${nodeId} -> "${title}"`, 'SYSTEM');
   }
 
   public updateNodeContent(nodeId: string, content: string) {
@@ -298,11 +337,16 @@ export class CoreEngine {
           ...current.nodes,
           [nodeId]: {
             ...current.nodes[nodeId],
-            metadata: { ...current.nodes[nodeId].metadata, content }
+            metadata: { 
+              ...current.nodes[nodeId].metadata, 
+              content 
+            },
+            updatedAt: Date.now()
           }
         }
       };
     });
+    this.terminal.log(`Node content updated: ${nodeId}`, 'SYSTEM');
   }
 
   public deleteEdge(edgeId: string) {
@@ -316,12 +360,96 @@ export class CoreEngine {
         edges: newEdges
       };
     });
+    this.terminal.log(`Edge deleted: ${edgeId}`, 'SYSTEM');
   }
 
   public clear() {
     this.saveSnapshot();
     this.bumpActivity();
     this.state.set({ nodes: {}, edges: {}, history: [], historyIndex: -1 });
+    this.terminal.log('EDEN Canvas cleared. All nodes and edges removed.', 'SYSTEM');
+  }
+
+  // --- VALIDATION ---
+
+  /**
+   * Validate the entire genome structure
+   */
+  public validateGenome(): { valid: boolean; errors: string[] } {
+    const errors: string[] = [];
+    const current = this.state();
+
+    // Check for nodes with missing required fields
+    for (const [id, node] of Object.entries(current.nodes)) {
+      if (!node.id) {
+        errors.push(`Node missing id`);
+      }
+      if (!node.type) {
+        errors.push(`Node ${id} missing type`);
+      }
+      if (!node.position || typeof node.position.x !== 'number' || typeof node.position.y !== 'number') {
+        errors.push(`Node ${id} has invalid position`);
+      }
+      if (!node.ternaryState) {
+        errors.push(`Node ${id} missing ternaryState`);
+      }
+      if (!node.metadata) {
+        errors.push(`Node ${id} missing metadata`);
+      }
+    }
+
+    // Check for edges with missing references
+    for (const [id, edge] of Object.entries(current.edges)) {
+      if (!current.nodes[edge.sourceId]) {
+        errors.push(`Edge ${id} references non-existent source node: ${edge.sourceId}`);
+      }
+      if (!current.nodes[edge.targetId]) {
+        errors.push(`Edge ${id} references non-existent target node: ${edge.targetId}`);
+      }
+      if (edge.sourceId === edge.targetId) {
+        errors.push(`Edge ${id} has same source and target (self-loop)`);
+      }
+    }
+
+    // Check for duplicate edge IDs
+    const edgeIds = Object.keys(current.edges);
+    const uniqueEdgeIds = new Set(edgeIds);
+    if (edgeIds.length !== uniqueEdgeIds.size) {
+      errors.push('Duplicate edge IDs detected');
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors
+    };
+  }
+
+  /**
+   * Get genome statistics
+   */
+  public getStats() {
+    const current = this.state();
+    const nodes = Object.values(current.nodes);
+    const edges = Object.values(current.edges);
+
+    const nodeTypes: Record<string, number> = {};
+    for (const node of nodes) {
+      nodeTypes[node.type] = (nodeTypes[node.type] || 0) + 1;
+    }
+
+    const ternaryStates: Record<string, number> = {};
+    for (const node of nodes) {
+      ternaryStates[node.ternaryState] = (ternaryStates[node.ternaryState] || 0) + 1;
+    }
+
+    return {
+      nodeCount: nodes.length,
+      edgeCount: edges.length,
+      nodeTypes,
+      ternaryStates,
+      historyLength: current.history.length,
+      historyIndex: current.historyIndex
+    };
   }
 
   // --- LOCAL STORAGE ---
@@ -330,7 +458,8 @@ export class CoreEngine {
     const current = this.state();
     const dataToSave = {
       nodes: current.nodes,
-      edges: current.edges
+      edges: current.edges,
+      timestamp: Date.now()
     };
     try {
       localStorage.setItem('eden_genome_save', JSON.stringify(dataToSave));

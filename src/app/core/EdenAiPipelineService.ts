@@ -6,6 +6,22 @@ import { CliService } from './CliService';
 
 export type AiMode = 'eden' | 'raw' | 'plan' | 'yolo';
 
+export interface AgentMemory {
+  objective: string;
+  iterations: number;
+  completedActions: string[];
+  failedActions: string[];
+  currentPlan: string[];
+  contextSummary: string;
+  timestamp: number;
+}
+
+export interface AgentPlan {
+  steps: string[];
+  currentStepIndex: number;
+  completedSteps: boolean[];
+}
+
 /**
  * EdenAiPipelineService — Centralized AI pipeline for EDEN.
  * 
@@ -28,8 +44,26 @@ export class EdenAiPipelineService {
   public isAgenticLoopActive = signal<boolean>(false);
   public currentObjective = signal<string>('');
   public agenticIteration = signal<number>(0);
-  public maxAgenticIterations = signal<number>(5);
+  public maxAgenticIterations = signal<number>(20);
   public currentReasoning = signal<string>('');
+  
+  // Agent Memory & Planning
+  public agentMemory = signal<AgentMemory>({
+    objective: '',
+    iterations: 0,
+    completedActions: [],
+    failedActions: [],
+    currentPlan: [],
+    contextSummary: '',
+    timestamp: Date.now()
+  });
+  
+  public agentPlan = signal<AgentPlan>({
+    steps: [],
+    currentStepIndex: 0,
+    completedSteps: []
+  });
+  
   private abortRequested = false;
 
   /**
@@ -115,6 +149,29 @@ Evaluate the CURRENT STATE of the graph and VFS against this objective.
 User request: Evaluate state and proceed.`;
   }
 
+  /**
+   * Build enhanced agentic context with memory and planning capabilities
+   */
+  buildEnhancedAgenticContext(objective: string, previousError?: string, contextSummary?: string): string {
+    const baseContext = this.buildEdenContext();
+    const memory = this.agentMemory();
+    let errorContext = '';
+
+    if (previousError) {
+      errorContext = `\n[ANTI-BAD BEHAVIOUR FRAMEWORK WARNING]:\nThe previous iteration failed with the following error:\n"${previousError}"\nYou MUST correct this error in your next response. Ensure your JSON format is strictly valid and matches the requested structure.`;
+    }
+
+    const memoryContext = `\n[AGENT MEMORY]:\n` +
+      `Objective: ${memory.objective}\n` +
+      `Iterations: ${memory.iterations}\n` +
+      `Completed: ${memory.completedActions.length} actions\n` +
+      `Failed: ${memory.failedActions.length} actions\n` +
+      `Last action: ${memory.completedActions.slice(-1)[0] || 'None'}\n` +
+      (contextSummary ? `Context: ${contextSummary}\n` : '');
+
+    return `${baseContext}\nAGENCY OBJECTIVE (EVALUATION PHASE): \nYou are inside an autonomous evaluator loop. Your ultimate goal is: "${objective}".${errorContext}${memoryContext}\n\nEvaluate the CURRENT STATE of the graph and VFS against this objective. \n- Have you fully achieved the objective?\n- If YES: You MUST respond ONLY with \`\`\`json { "completed": true, "reasoning": "Final confirmation that all steps are done." } \`\`\`.\n- If NO: Identify what is missing or incorrect, and output the NEXT JSON mutation (nodes, edges, files) to get closer to the objective. Include your "reasoning" for this specific mutation. Do NOT output "completed": true if there is still work to do.\n\nUser request: Evaluate state and proceed.`;
+  }
+
   // --- AGENTIC LOOP EXECUTION ---
   
   abortAgenticLoop() {
@@ -122,6 +179,43 @@ User request: Evaluate state and proceed.`;
       this.abortRequested = true;
       this.terminal.log('[AGENT] Stop requested by user. Aborting loop...', 'WARN');
     }
+  }
+
+  /**
+   * Update agent memory with current state
+   */
+  private updateAgentMemory(action: string, success: boolean, error?: string) {
+    this.agentMemory.update(memory => {
+      const newMemory = { ...memory };
+      newMemory.iterations = this.agenticIteration();
+      
+      if (success) {
+        newMemory.completedActions = [...memory.completedActions, action];
+      } else {
+        newMemory.failedActions = [...memory.failedActions, `${action}: ${error}`];
+      }
+      
+      newMemory.timestamp = Date.now();
+      return newMemory;
+    });
+  }
+
+  /**
+   * Generate a context summary for the AI
+   */
+  private generateContextSummary(): string {
+    const genome = this.engine.genome();
+    const nodeCount = Object.keys(genome.nodes).length;
+    const edgeCount = Object.keys(genome.edges).length;
+    const files = this.vfs.listFiles();
+    
+    const memory = this.agentMemory();
+    const completed = memory.completedActions.length;
+    const failed = memory.failedActions.length;
+    
+    return `Current State: ${nodeCount} nodes, ${edgeCount} edges, ${files.length} files. 
+Agent Progress: ${completed} completed, ${failed} failed. 
+Last action: ${memory.completedActions.slice(-1)[0] || 'None'}`;
   }
 
   async executeAgenticLoop(engineName: 'local' | 'gemini', objective: string, maxIterations = 5) {
@@ -137,12 +231,25 @@ User request: Evaluate state and proceed.`;
     let previousError = '';
 
     try {
+      // Initialize memory for this agentic loop
+      this.agentMemory.set({
+        objective,
+        iterations: 0,
+        completedActions: [],
+        failedActions: [],
+        currentPlan: [],
+        contextSummary: this.generateContextSummary(),
+        timestamp: Date.now()
+      });
+
       while (iteration < maxIterations && !this.abortRequested) {
         iteration++;
         this.agenticIteration.set(iteration);
         this.terminal.log(`[AGENT] Iteration ${iteration}/${maxIterations} - Analyzing state...`, 'INFO');
 
-        const prompt = this.buildAgenticContext(objective, previousError);
+        // Build enhanced context with memory
+        const contextSummary = this.generateContextSummary();
+        const prompt = this.buildEnhancedAgenticContext(objective, previousError, contextSummary);
         previousError = ''; // reset after using
 
         // Force YOLO mode strictly for agentic evaluation inner loops to prevent interaction blocks
@@ -152,6 +259,7 @@ User request: Evaluate state and proceed.`;
 
         if (res.error) {
           this.terminal.log(`[AGENT] Error: ${res.error}. Aborting loop.`, 'ERROR');
+          this.updateAgentMemory(`Iteration ${iteration}: API Error`, false, res.error);
           break;
         }
 
@@ -162,22 +270,28 @@ User request: Evaluate state and proceed.`;
         
         if (isCompletedMatch) {
           this.terminal.log(`[AGENT] Evaluation result: COMPLETED. Objective achieved!`, 'SYSTEM');
+          this.updateAgentMemory(`Objective completed: ${objective}`, true);
           break;
         } else {
           this.terminal.log(`[AGENT] Evaluation result: INCOMPLETE. Mutating state...`, 'INFO');
           // Parse and inject
           try {
             const injected = this.tryInjectFromOutput(out);
-            if (!injected && iteration === 1) {
-               // If first iteration didn't inject anything and didn't complete, it might have responded in text
-               this.terminal.log(`[AGENT] AI output did not contain valid mutations. Evaluating again next cycle.`, 'WARN');
-               previousError = "ERROR: Failed to inject mutations. Ensure you are outputting the exact requested JSON format with 'nodes', 'edges', or 'files'.";
-            } else if (!injected) {
-               previousError = "ERROR: Output lacked valid JSON mutations. Please correct format.";
+            if (injected) {
+              this.updateAgentMemory(`Iteration ${iteration}: Mutations applied`, true);
+            } else if (iteration === 1) {
+              // If first iteration didn't inject anything and didn't complete, it might have responded in text
+              this.terminal.log(`[AGENT] AI output did not contain valid mutations. Evaluating again next cycle.`, 'WARN');
+              previousError = "ERROR: Failed to inject mutations. Ensure you are outputting the exact requested JSON format with 'nodes', 'edges', or 'files'.";
+              this.updateAgentMemory(`Iteration ${iteration}: No valid mutations`, false, previousError);
+            } else {
+              previousError = "ERROR: Output lacked valid JSON mutations. Please correct format.";
+              this.updateAgentMemory(`Iteration ${iteration}: Invalid format`, false, previousError);
             }
           } catch (e: any) {
             this.terminal.log(`[AGENT] Injection failed: ${e.message}`, 'WARN');
             previousError = `ERROR: Invalid JSON or mutation structure. ${e.message}`;
+            this.updateAgentMemory(`Iteration ${iteration}: Injection error`, false, e.message);
           }
           
           // Wait briefly to allow UI to visually update
