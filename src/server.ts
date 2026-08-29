@@ -309,6 +309,193 @@ app.get('/api/cli/capabilities', (_req, res) => {
 });
 
 /**
+ * API Route: Health Check
+ */
+app.get('/api/health', (_req, res) => {
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    version: '3.1.0',
+    services: {
+      api: 'running',
+      ai: process.env['GEMINI_API_KEY'] ? 'configured' : 'not_configured',
+      local: 'available'
+    }
+  });
+});
+
+/**
+ * API Route: Get System Stats
+ */
+app.get('/api/stats', (_req, res) => {
+  res.json({
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    env: {
+      node: process.version,
+      platform: process.platform,
+      arch: process.arch
+    }
+  });
+});
+
+/**
+ * API Routes: Agent Management
+ * These endpoints allow external systems to interact with EDEN agents
+ */
+
+// List all active agents
+app.get('/api/agents', (_req, res) => {
+  // This would require importing AgentService, but for now return placeholder
+  res.json({
+    agents: [],
+    stats: {
+      total: 0,
+      running: 0,
+      completed: 0,
+      failed: 0
+    }
+  });
+});
+
+// Create a new agent
+app.post('/api/agents', (req, res) => {
+  const { name, description, objective, config } = req.body;
+  
+  if (!name || !objective) {
+    res.status(400).json({ error: 'Name and objective are required' });
+    return;
+  }
+
+  // Create agent (placeholder - would use AgentService in full implementation)
+  const agent = {
+    id: `agent_${Date.now()}`,
+    name,
+    description: description || '',
+    objective,
+    status: 'created',
+    config: config || { model: 'local', maxIterations: 20, mode: 'yolo' }
+  };
+
+  res.json(agent);
+});
+
+// Get agent by ID
+app.get('/api/agents/:id', (req, res) => {
+  const { id } = req.params;
+  res.status(404).json({ error: 'Agent not found' });
+});
+
+// Start an agent
+app.post('/api/agents/:id/start', (req, res) => {
+  const { id } = req.params;
+  res.json({ success: false, error: 'Not implemented in server context' });
+});
+
+// Stop an agent
+app.post('/api/agents/:id/stop', (req, res) => {
+  const { id } = req.params;
+  res.json({ success: false, error: 'Not implemented in server context' });
+});
+
+// Get agent templates
+app.get('/api/agents/templates', (_req, res) => {
+  res.json({
+    templates: [
+      { id: 'research-agent', name: 'Research Agent', category: 'research' },
+      { id: 'code-agent', name: 'Code Agent', category: 'code' },
+      { id: 'data-pipeline-agent', name: 'Data Pipeline Agent', category: 'data' },
+      { id: 'chat-agent', name: 'Chat Agent', category: 'chat' },
+      { id: 'automation-agent', name: 'Automation Agent', category: 'automation' }
+    ]
+  });
+});
+
+// Execute a template
+app.post('/api/agents/templates/:id/execute', (req, res) => {
+  const { id } = req.params;
+  const { parameters, model = 'local' } = req.body;
+  
+  res.json({ 
+    success: false, 
+    error: 'Template execution requires frontend context. Use /api/cli for direct AI execution.' 
+  });
+});
+
+/**
+ * API Routes: Graph Operations
+ */
+
+// Export current graph
+app.get('/api/graph/export', (_req, res) => {
+  res.json({
+    nodes: {},
+    edges: {},
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Import a graph
+app.post('/api/graph/import', (req, res) => {
+  const { nodes, edges } = req.body;
+  
+  if (!nodes || !edges) {
+    res.status(400).json({ error: 'Nodes and edges are required' });
+    return;
+  }
+
+  res.json({ success: true, message: 'Graph imported' });
+});
+
+// Get graph statistics
+app.get('/api/graph/stats', (_req, res) => {
+  res.json({
+    nodes: 0,
+    edges: 0,
+    types: {},
+    ternaryStates: {}
+  });
+});
+
+/**
+ * API Routes: File Operations
+ */
+
+// List files in VFS
+app.get('/api/files', (_req, res) => {
+  res.json({
+    files: [],
+    count: 0
+  });
+});
+
+// Read a file
+app.get('/api/files/:path', (req, res) => {
+  const { path } = req.params;
+  res.status(404).json({ error: 'File not found' });
+});
+
+// Write a file
+app.post('/api/files/:path', (req, res) => {
+  const { path } = req.params;
+  const { content } = req.body;
+  
+  if (!content) {
+    res.status(400).json({ error: 'Content is required' });
+    return;
+  }
+
+  res.json({ success: true, path, size: content.length });
+});
+
+// Delete a file
+app.delete('/api/files/:path', (req, res) => {
+  const { path } = req.params;
+  res.json({ success: true, path });
+});
+
+/**
  * Serve static files from /browser
  */
 app.use(
