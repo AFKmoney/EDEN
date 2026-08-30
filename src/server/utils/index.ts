@@ -1,20 +1,8 @@
 /**
  * Utils Index
- * Export all utility functions
+ * Export all utility modules
  */
 
-export {
-  sendEmail,
-  sendWelcomeEmail,
-  sendVerificationEmail,
-  sendPasswordResetEmail,
-  sendNotificationEmail,
-  isValidEmail,
-  generateVerificationUrl,
-  generatePasswordResetUrl,
-  templates,
-  SMTP_HOST,
-  SMTP_PORT,
-  SMTP_USER,
-  SMTP_FROM,
-} from './email';
+export * from './email';
+export * from './logger';
+export * from './metrics';
