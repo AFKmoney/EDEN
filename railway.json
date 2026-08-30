@@ -1,0 +1,112 @@
+{
+  "$schema": "https://railway.app/railway-schema.json",
+  "project": {
+    "name": "EDEN",
+    "description": "Visual AI Graph IDE with Ternary VM",
+    "environmentVariables": {
+      "NODE_ENV": "production",
+      "PORT": "4000",
+      "GEMINI_API_KEY": "",
+      "LOCAL_MODEL": "qwen2.5-coder",
+      "LOCAL_API_URL": "http://localhost:11434/api/generate",
+      "AI_TIMEOUT_MS": "120000",
+      "MAX_AGENT_ITERATIONS": "20",
+      "LOG_LEVEL": "info",
+      "SSR_ENABLED": "true"
+    },
+    "plugins": {
+      "nginx": {
+        "enabled": true,
+        "config": "nginx.conf"
+      }
+    }
+  },
+  "services": [
+    {
+      "name": "eden-backend",
+      "type": "node",
+      "startCommand": "node dist/server.js",
+      "buildCommand": "npm install && npm run build",
+      "autoDeploy": true,
+      "healthcheckPath": "/api/health",
+      "healthcheckTimeout": 30,
+      "cpu": 1,
+      "memory": 2048,
+      "minInstances": 1,
+      "maxInstances": 3,
+      "environmentVariables": {
+        "NODE_ENV": "production",
+        "PORT": "${{RAILWAY_PUBLIC_DOMAIN && 443 || 4000}}",
+        "GEMINI_API_KEY": "${{RAILWAY_ENV_GEMINI_API_KEY}}",
+        "LOCAL_MODEL": "qwen2.5-coder",
+        "AI_TIMEOUT_MS": "120000"
+      }
+    },
+    {
+      "name": "ollama",
+      "type": "container",
+      "image": "ollama/ollama:latest",
+      "cpu": 2,
+      "memory": 8192,
+      "minInstances": 1,
+      "maxInstances": 1,
+      "volumes": [
+        {
+          "name": "ollama-data",
+          "mountPath": "/root/.ollama"
+        }
+      ],
+      "environmentVariables": {},
+      "ports": [
+        {
+          "port": 11434,
+          "protocol": "tcp",
+          "public": false
+        }
+      ]
+    },
+    {
+      "name": "redis",
+      "type": "container",
+      "image": "redis:alpine",
+      "cpu": 0.5,
+      "memory": 512,
+      "minInstances": 1,
+      "maxInstances": 1,
+      "volumes": [
+        {
+          "name": "redis-data",
+          "mountPath": "/data"
+        }
+      ],
+      "ports": [
+        {
+          "port": 6379,
+          "protocol": "tcp",
+          "public": false
+        }
+      ]
+    }
+  ],
+  "volumes": [
+    {
+      "name": "ollama-data",
+      "persist": true
+    },
+    {
+      "name": "redis-data",
+      "persist": true
+    }
+  ],
+  "domains": [
+    {
+      "name": "eden.yourdomain.com",
+      "service": "eden-backend"
+    }
+  ],
+  "ssl": {
+    "enabled": true,
+    "autoCert": true,
+    "provider": "letsencrypt"
+  }
+}
