@@ -1,0 +1,104 @@
+# EDEN Prometheus Configuration
+# Monitoring configuration for EDEN application
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+# Rule files
+rule_files:
+  # - "alert.rules"
+  # - "recording.rules"
+
+# Scrape configurations
+scrape_configs:
+  # ============================================
+  # Prometheus itself
+  # ============================================
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 30s
+
+  # ============================================
+  # EDEN Backend
+  # ============================================
+  - job_name: 'eden-backend'
+    metrics_path: '/api/metrics'
+    static_configs:
+      - targets: ['backend:4000']
+    scrape_interval: 10s
+    scrape_timeout: 5s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __scheme__
+        replacement: 'http'
+
+  # ============================================
+  # Node Exporter (System Metrics)
+  # ============================================
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 15s
+
+  # ============================================
+  # MongoDB Exporter
+  # ============================================
+  - job_name: 'mongodb-exporter'
+    static_configs:
+      - targets: ['mongodb-exporter:9216']
+    scrape_interval: 15s
+
+  # ============================================
+  # Redis Exporter
+  # ============================================
+  - job_name: 'redis-exporter'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 15s
+
+  # ============================================
+  # Grafana
+  # ============================================
+  - job_name: 'grafana'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['grafana:3000']
+    scrape_interval: 30s
+
+# Remote write configuration (for external monitoring)
+# remote_write:
+#   - url: "https://your-remote-write-endpoint/api/v1/write"
+#     basic_auth:
+#       username: "username"
+#       password: "password"
+
+# Alert rules (inline for simplicity)
+# This would normally be in a separate file
+# rules:
+#   - alert: HighErrorRate
+#     expr: rate(http_requests_total{status=~"5.."}[1m]) / rate(http_requests_total[1m]) > 0.1
+#     for: 5m
+#     labels:
+#       severity: critical
+#     annotations:
+#       summary: "High error rate on {{ $labels.instance }}"
+#       description: "Error rate is {{ $value }} (10% threshold)"
+# 
+#   - alert: HighMemoryUsage
+#     expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.2
+#     for: 5m
+#     labels:
+#       severity: warning
+#     annotations:
+#       summary: "High memory usage on {{ $labels.instance }}"
+#       description: "Only {{ $value }} memory available"
