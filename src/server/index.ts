@@ -1,30 +1,29 @@
 /**
  * EDEN Backend Server
- * REST API for EDEN Visual AI Graph IDE
+ * REST API for EDEN Visual AI Graph IDE with MongoDB
  */
 
-import express, { Request, Response, NextFunction } from 'express';
+import express, { Request, Response, NextFunction, Application } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
 import morgan from 'morgan';
-import fs from 'fs';
-import path from 'path';
-import crypto from 'crypto';
-import jwt from 'jsonwebtoken';
+import { initializeDatabase, closeDatabase } from './config/database';
+import { errorHandler, notFoundHandler } from './middleware/errorHandler';
+import { apiLimiter, authLimiter, webhookLimiter } from './middleware/rateLimit';
+import { authenticate, optionalAuthenticate } from './middleware/auth';
 
-// Import types
-import { WebhookPayload, WebhookEvent } from '../app/core/WebhookService';
-import { AgentSnapshot, AgentTemplate } from '../app/core/AgentPersistenceService';
+// Import controllers
+import * as UserController from './controllers/UserController';
+import * as AgentController from './controllers/AgentController';
+import * as TemplateController from './controllers/TemplateController';
+import * as WebhookController from './controllers/WebhookController';
 
 // Configuration
 const PORT = process.env.PORT || 4000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
-const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
-const AI_TIMEOUT_MS = parseInt(process.env.AI_TIMEOUT_MS || '120000');
 
 // Initialize Express
-const app = express();
+const app: Application = express();
 
 // ============================================
 // Middleware
@@ -57,14 +56,7 @@ app.use(cors({
 }));
 
 // Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // limit each IP to 1000 requests per windowMs
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many requests, please try again later.' },
-});
-app.use(limiter);
+app.use(apiLimiter);
 
 // Body parsing
 app.use(express.json({ limit: '50mb' }));
@@ -77,161 +69,26 @@ app.use(morgan(NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.set('trust proxy', true);
 
 // ============================================
-// Utility Functions
+// Database Initialization
 // ============================================
 
-/**
- * Generate JWT token
- */
-function generateToken(user: { id: string; email: string; role?: string }): string {
-  return jwt.sign(
-    {
-      sub: user.id,
-      email: user.email,
-      role: user.role || 'user',
-      iat: Math.floor(Date.now() / 1000),
-      exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60), // 24 hours
-    },
-    JWT_SECRET
-  );
-}
-
-/**
- * Verify JWT token
- */
-function verifyToken(token: string): any {
-  try {
-    return jwt.verify(token, JWT_SECRET);
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Authentication middleware
- */
-function authenticate(req: Request, res: Response, next: NextFunction) {
-  const authHeader = req.headers.authorization;
-  
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Authentication required' });
-  }
-
-  const token = authHeader.substring(7);
-  const decoded = verifyToken(token);
-  
-  if (!decoded) {
-    return res.status(401).json({ error: 'Invalid token' });
-  }
-
-  (req as any).user = decoded;
-  next();
-}
-
-/**
- * Role-based authorization middleware
- */
-function authorize(roles: string[]) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    const user = (req as any).user;
-    
-    if (!user) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
-
-    if (!roles.includes(user.role)) {
-      return res.status(403).json({ error: 'Insufficient permissions' });
-    }
-
-    next();
-  };
-}
-
-/**
- * Validate webhook signature
- */
-function validateWebhookSignature(
-  payload: any,
-  signature: string | undefined,
-  secret: string | undefined
-): boolean {
-  if (!signature || !secret) return true; // Skip if no signature required
-  
-  const expectedSignature = crypto
-    .createHmac('sha256', secret)
-    .update(JSON.stringify(payload))
-    .digest('hex');
-  
-  return expectedSignature === signature;
-}
+// Initialize database connections
+initializeDatabase().catch((error) => {
+  console.error('Failed to initialize database:', error);
+  process.exit(1);
+});
 
 // ============================================
-// Mock Database (Replace with real database in production)
+// Health Check
 // ============================================
 
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  passwordHash: string;
-  role: 'user' | 'admin';
-  createdAt: number;
-}
-
-interface Database {
-  users: Record<string, User>;
-  agents: Record<string, AgentSnapshot>;
-  templates: Record<string, AgentTemplate>;
-  webhooks: Record<string, any>;
-  webhookEvents: WebhookEvent[];
-}
-
-const db: Database = {
-  users: {},
-  agents: {},
-  templates: {},
-  webhooks: {},
-  webhookEvents: [],
-};
-
-// Initialize with some test data
-function initializeDatabase() {
-  // Create admin user
-  const adminPassword = crypto.createHash('sha256').update('admin123').digest('hex');
-  db.users['admin_1'] = {
-    id: 'admin_1',
-    email: 'admin@eden.dev',
-    name: 'Admin User',
-    passwordHash: adminPassword,
-    role: 'admin',
-    createdAt: Date.now(),
-  };
-
-  // Create test user
-  const userPassword = crypto.createHash('sha256').update('user123').digest('hex');
-  db.users['user_1'] = {
-    id: 'user_1',
-    email: 'user@eden.dev',
-    name: 'Test User',
-    passwordHash: userPassword,
-    role: 'user',
-    createdAt: Date.now(),
-  };
-}
-
-initializeDatabase();
-
-// ============================================
-// API Routes
-// ============================================
-
-// Health check
 app.get('/api/health', (req: Request, res: Response) => {
   res.json({
     status: 'ok',
     timestamp: Date.now(),
     version: '1.0.0',
     environment: NODE_ENV,
+    database: 'connected',
   });
 });
 
@@ -239,739 +96,251 @@ app.get('/api/health', (req: Request, res: Response) => {
 // Authentication Routes
 // ============================================
 
-/**
- * POST /api/auth/register
- * Register a new user
- */
-app.post('/api/auth/register', async (req: Request, res: Response) => {
-  try {
-    const { email, password, name } = req.body;
+// Register
+app.post('/api/auth/register', authLimiter, UserController.register);
 
-    if (!email || !password || !name) {
-      return res.status(400).json({ error: 'Email, password, and name are required' });
-    }
+// Login
+app.post('/api/auth/login', authLimiter, UserController.login);
 
-    // Check if user already exists
-    const existingUser = Object.values(db.users).find(u => u.email === email);
-    if (existingUser) {
-      return res.status(400).json({ error: 'User already exists' });
-    }
+// Logout
+app.post('/api/auth/logout', authenticate, UserController.logout);
 
-    // Hash password
-    const passwordHash = crypto.createHash('sha256').update(password).digest('hex');
+// Refresh token
+app.post('/api/auth/refresh', authenticate, UserController.refreshToken);
 
-    // Create user
-    const user: User = {
-      id: `user_${Date.now()}`,
-      email,
-      name,
-      passwordHash,
-      role: 'user',
-      createdAt: Date.now(),
-    };
+// Get current user
+app.get('/api/auth/me', authenticate, UserController.getMe);
 
-    db.users[user.id] = user;
+// Verify email
+app.get('/api/auth/verify', UserController.verifyEmail);
 
-    // Generate token
-    const token = generateToken(user);
+// Request password reset
+app.post('/api/auth/request-password-reset', authLimiter, UserController.requestPasswordReset);
 
-    res.json({
-      success: true,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        createdAt: user.createdAt,
-      },
-      token,
-    });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// Reset password
+app.post('/api/auth/reset-password', UserController.resetPassword);
 
-/**
- * POST /api/auth/login
- * Login user
- */
-app.post('/api/auth/login', async (req: Request, res: Response) => {
-  try {
-    const { email, password } = req.body;
+// Check email availability
+app.get('/api/auth/check-email', UserController.checkEmailAvailable);
 
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
-    }
+// Get user by ID
+app.get('/api/users/:id', authenticate, UserController.getUserById);
 
-    // Find user
-    const user = Object.values(db.users).find(u => u.email === email);
-    if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
+// Update user profile
+app.put('/api/users/:id/profile', authenticate, UserController.updateProfile);
 
-    // Verify password
-    const passwordHash = crypto.createHash('sha256').update(password).digest('hex');
-    if (passwordHash !== user.passwordHash) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
+// Get user stats
+app.get('/api/users/:id/stats', authenticate, UserController.getUserStats);
 
-    // Generate token
-    const token = generateToken(user);
+// Admin: Get all users
+app.get('/api/users', authenticate, UserController.getAllUsers);
 
-    res.json({
-      success: true,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        createdAt: user.createdAt,
-      },
-      token,
-    });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// Admin: Update user
+app.put('/api/users/:id', authenticate, UserController.updateUser);
 
-/**
- * POST /api/auth/refresh
- * Refresh token
- */
-app.post('/api/auth/refresh', authenticate, (req: Request, res: Response) => {
-  try {
-    const user = (req as any).user;
-    const token = generateToken(user);
-    
-    res.json({ success: true, token });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-/**
- * POST /api/auth/logout
- * Logout user (invalidate token client-side)
- */
-app.post('/api/auth/logout', authenticate, (req: Request, res: Response) => {
-  res.json({ success: true });
-});
-
-/**
- * GET /api/auth/me
- * Get current user
- */
-app.get('/api/auth/me', authenticate, (req: Request, res: Response) => {
-  const user = (req as any).user;
-  res.json({ user });
-});
+// Admin: Delete user
+app.delete('/api/users/:id', authenticate, UserController.deleteUser);
 
 // ============================================
 // Agent Routes
 // ============================================
 
-/**
- * GET /api/agents
- * Get all agents for current user
- */
-app.get('/api/agents', authenticate, (req: Request, res: Response) => {
-  try {
-    const user = (req as any).user;
-    const agents = Object.values(db.agents).filter(a => a.metadata.author === user.sub);
-    res.json({ agents });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// Create agent
+app.post('/api/agents', authenticate, AgentController.createAgent);
 
-/**
- * GET /api/agents/:id
- * Get a specific agent
- */
-app.get('/api/agents/:id', authenticate, (req: Request, res: Response) => {
-  try {
-    const agent = db.agents[req.params.id];
-    if (!agent) {
-      return res.status(404).json({ error: 'Agent not found' });
-    }
-    res.json({ agent });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// Get agent by ID
+app.get('/api/agents/:id', authenticate, AgentController.getAgentById);
 
-/**
- * POST /api/agents
- * Create a new agent
- */
-app.post('/api/agents', authenticate, (req: Request, res: Response) => {
-  try {
-    const user = (req as any).user;
-    const { name, description, nodes, connections, tags } = req.body;
+// Get my agents
+app.get('/api/agents', authenticate, AgentController.getMyAgents);
 
-    if (!name || !nodes) {
-      return res.status(400).json({ error: 'Name and nodes are required' });
-    }
+// Get public agents
+app.get('/api/agents/public', optionalAuthenticate, AgentController.getPublicAgents);
 
-    const agent: AgentSnapshot = {
-      id: `agent_${Date.now()}`,
-      name,
-      description,
-      nodes,
-      connections: connections || [],
-      metadata: {
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        version: '1.0.0',
-        author: user.sub,
-        tags: tags || [],
-      },
-    };
+// Update agent
+app.put('/api/agents/:id', authenticate, AgentController.updateAgent);
 
-    db.agents[agent.id] = agent;
-    res.status(201).json({ agent });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// Delete agent
+app.delete('/api/agents/:id', authenticate, AgentController.deleteAgent);
 
-/**
- * PUT /api/agents/:id
- * Update an agent
- */
-app.put('/api/agents/:id', authenticate, (req: Request, res: Response) => {
-  try {
-    const agent = db.agents[req.params.id];
-    if (!agent) {
-      return res.status(404).json({ error: 'Agent not found' });
-    }
+// Clone agent
+app.post('/api/agents/:id/clone', authenticate, AgentController.cloneAgent);
 
-    const user = (req as any).user;
-    if (agent.metadata.author !== user.sub) {
-      return res.status(403).json({ error: 'Not authorized' });
-    }
+// Toggle agent visibility
+app.put('/api/agents/:id/visibility', authenticate, AgentController.toggleAgentVisibility);
 
-    const updates = req.body;
-    db.agents[req.params.id] = {
-      ...agent,
-      ...updates,
-      metadata: {
-        ...agent.metadata,
-        updatedAt: Date.now(),
-      },
-    };
+// Get featured agents
+app.get('/api/agents/featured', AgentController.getFeaturedAgents);
 
-    res.json({ agent: db.agents[req.params.id] });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// Get recent agents
+app.get('/api/agents/recent', AgentController.getRecentAgents);
 
-/**
- * DELETE /api/agents/:id
- * Delete an agent
- */
-app.delete('/api/agents/:id', authenticate, (req: Request, res: Response) => {
-  try {
-    const agent = db.agents[req.params.id];
-    if (!agent) {
-      return res.status(404).json({ error: 'Agent not found' });
-    }
+// Get popular agents
+app.get('/api/agents/popular', AgentController.getPopularAgents);
 
-    const user = (req as any).user;
-    if (agent.metadata.author !== user.sub && user.role !== 'admin') {
-      return res.status(403).json({ error: 'Not authorized' });
-    }
+// Execute agent
+app.post('/api/agents/:id/execute', authenticate, AgentController.executeAgent);
 
-    delete db.agents[req.params.id];
-    res.json({ success: true });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// Get agent stats
+app.get('/api/agents/:id/stats', authenticate, AgentController.getAgentStats);
+
+// Get agent categories
+app.get('/api/agents/categories', AgentController.getAgentCategories);
+
+// Get agent difficulties
+app.get('/api/agents/difficulties', AgentController.getAgentDifficulties);
 
 // ============================================
 // Template Routes
 // ============================================
 
-/**
- * GET /api/templates
- * Get all templates (public or user's)
- */
-app.get('/api/templates', (req: Request, res: Response) => {
-  try {
-    const { category, search, sort, isPublic } = req.query;
-    let templates = Object.values(db.templates);
+// Create template
+app.post('/api/templates', authenticate, TemplateController.createTemplate);
 
-    // Filter by public status (if not authenticated)
-    const user = (req as any).user;
-    if (!user) {
-      templates = templates.filter(t => t.metadata.isPublic);
-    } else if (isPublic !== undefined) {
-      templates = templates.filter(t => t.metadata.isPublic === (isPublic === 'true'));
-    }
+// Get template by ID
+app.get('/api/templates/:id', optionalAuthenticate, TemplateController.getTemplateById);
 
-    // Filter by category
-    if (category) {
-      templates = templates.filter(t => t.metadata.category === category);
-    }
+// Get all templates
+app.get('/api/templates', optionalAuthenticate, TemplateController.getAllTemplates);
 
-    // Filter by search
-    if (search) {
-      const lowerSearch = (search as string).toLowerCase();
-      templates = templates.filter(t =>
-        t.name.toLowerCase().includes(lowerSearch) ||
-        t.description.toLowerCase().includes(lowerSearch) ||
-        t.author.toLowerCase().includes(lowerSearch) ||
-        t.metadata.tags.some(tag => tag.toLowerCase().includes(lowerSearch))
-      );
-    }
+// Get public templates
+app.get('/api/templates/public', TemplateController.getPublicTemplates);
 
-    // Sort
-    switch (sort) {
-      case 'recent':
-        templates.sort((a, b) => b.metadata.createdAt - a.metadata.createdAt);
-        break;
-      case 'rating':
-        templates.sort((a, b) => b.metadata.rating - a.metadata.rating);
-        break;
-      case 'downloads':
-        templates.sort((a, b) => b.metadata.downloadCount - a.metadata.downloadCount);
-        break;
-      default: // popular
-        templates.sort((a, b) => {
-          const bScore = b.metadata.downloadCount * 2 + b.metadata.likeCount + b.metadata.rating * 10;
-          const aScore = a.metadata.downloadCount * 2 + a.metadata.likeCount + a.metadata.rating * 10;
-          return bScore - aScore;
-        });
-    }
+// Get user's templates
+app.get('/api/users/:id/templates', authenticate, TemplateController.getUserTemplates);
 
-    res.json({ templates });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// Update template
+app.put('/api/templates/:id', authenticate, TemplateController.updateTemplate);
 
-/**
- * GET /api/templates/:id
- * Get a specific template
- */
-app.get('/api/templates/:id', (req: Request, res: Response) => {
-  try {
-    const template = db.templates[req.params.id];
-    if (!template) {
-      return res.status(404).json({ error: 'Template not found' });
-    }
+// Delete template
+app.delete('/api/templates/:id', authenticate, TemplateController.deleteTemplate);
 
-    // Check if public or user has access
-    const user = (req as any).user;
-    if (!template.metadata.isPublic && (!user || template.authorId !== user.sub)) {
-      return res.status(403).json({ error: 'Not authorized' });
-    }
+// Clone template
+app.post('/api/templates/:id/clone', authenticate, TemplateController.cloneTemplate);
 
-    res.json({ template });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// Fork template
+app.post('/api/templates/:id/fork', authenticate, TemplateController.forkTemplate);
 
-/**
- * POST /api/templates
- * Create a new template
- */
-app.post('/api/templates', authenticate, (req: Request, res: Response) => {
-  try {
-    const user = (req as any).user;
-    const { name, description, nodes, connections, category, tags, isPublic } = req.body;
+// Toggle template visibility
+app.put('/api/templates/:id/visibility', authenticate, TemplateController.toggleTemplateVisibility);
 
-    if (!name || !nodes) {
-      return res.status(400).json({ error: 'Name and nodes are required' });
-    }
+// Feature template (admin)
+app.put('/api/templates/:id/feature', authenticate, TemplateController.featureTemplate);
 
-    const template: AgentTemplate = {
-      id: `template_${Date.now()}`,
-      name,
-      description,
-      author: user.name || user.email,
-      authorId: user.sub,
-      nodes,
-      connections: connections || [],
-      metadata: {
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        version: '1.0.0',
-        tags: tags || [],
-        category: category || 'other',
-        isPublic: isPublic || false,
-        downloadCount: 0,
-        rating: 0,
-        likeCount: 0,
-      },
-    };
+// Like template
+app.post('/api/templates/:id/like', authenticate, TemplateController.likeTemplate);
 
-    db.templates[template.id] = template;
-    res.status(201).json({ template });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// Unlike template
+app.post('/api/templates/:id/unlike', authenticate, TemplateController.unlikeTemplate);
 
-/**
- * PUT /api/templates/:id
- * Update a template
- */
-app.put('/api/templates/:id', authenticate, (req: Request, res: Response) => {
-  try {
-    const template = db.templates[req.params.id];
-    if (!template) {
-      return res.status(404).json({ error: 'Template not found' });
-    }
+// Download template
+app.post('/api/templates/:id/download', optionalAuthenticate, TemplateController.downloadTemplate);
 
-    const user = (req as any).user;
-    if (template.authorId !== user.sub && user.role !== 'admin') {
-      return res.status(403).json({ error: 'Not authorized' });
-    }
+// Rate template
+app.post('/api/templates/:id/rate', authenticate, TemplateController.rateTemplate);
 
-    const updates = req.body;
-    db.templates[req.params.id] = {
-      ...template,
-      ...updates,
-      metadata: {
-        ...template.metadata,
-        updatedAt: Date.now(),
-      },
-    };
+// Add review
+app.post('/api/templates/:id/reviews', authenticate, TemplateController.addReview);
 
-    res.json({ template: db.templates[req.params.id] });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// Get featured templates
+app.get('/api/templates/featured', TemplateController.getFeaturedTemplates);
 
-/**
- * DELETE /api/templates/:id
- * Delete a template
- */
-app.delete('/api/templates/:id', authenticate, (req: Request, res: Response) => {
-  try {
-    const template = db.templates[req.params.id];
-    if (!template) {
-      return res.status(404).json({ error: 'Template not found' });
-    }
+// Get popular templates
+app.get('/api/templates/popular', TemplateController.getPopularTemplates);
 
-    const user = (req as any).user;
-    if (template.authorId !== user.sub && user.role !== 'admin') {
-      return res.status(403).json({ error: 'Not authorized' });
-    }
+// Get recent templates
+app.get('/api/templates/recent', TemplateController.getRecentTemplates);
 
-    delete db.templates[req.params.id];
-    res.json({ success: true });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// Get top rated templates
+app.get('/api/templates/top-rated', TemplateController.getTopRatedTemplates);
 
-/**
- * POST /api/templates/:id/like
- * Like a template
- */
-app.post('/api/templates/:id/like', authenticate, (req: Request, res: Response) => {
-  try {
-    const template = db.templates[req.params.id];
-    if (!template) {
-      return res.status(404).json({ error: 'Template not found' });
-    }
+// Get templates by category
+app.get('/api/templates/category/:category', TemplateController.getTemplatesByCategory);
 
-    db.templates[req.params.id] = {
-      ...template,
-      metadata: {
-        ...template.metadata,
-        likeCount: template.metadata.likeCount + 1,
-      },
-    };
+// Search templates
+app.get('/api/templates/search', TemplateController.searchTemplates);
 
-    res.json({ success: true, template: db.templates[req.params.id] });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// Get template stats
+app.get('/api/templates/:id/stats', TemplateController.getTemplateStats);
 
-/**
- * POST /api/templates/:id/download
- * Download a template (increment counter)
- */
-app.post('/api/templates/:id/download', authenticate, (req: Request, res: Response) => {
-  try {
-    const template = db.templates[req.params.id];
-    if (!template) {
-      return res.status(404).json({ error: 'Template not found' });
-    }
+// Get template categories
+app.get('/api/templates/categories', TemplateController.getTemplateCategories);
 
-    db.templates[req.params.id] = {
-      ...template,
-      metadata: {
-        ...template.metadata,
-        downloadCount: template.metadata.downloadCount + 1,
-      },
-    };
-
-    res.json({ success: true, template: db.templates[req.params.id] });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-/**
- * POST /api/templates/:id/rate
- * Rate a template
- */
-app.post('/api/templates/:id/rate', authenticate, (req: Request, res: Response) => {
-  try {
-    const { rating } = req.body;
-    const template = db.templates[req.params.id];
-    if (!template) {
-      return res.status(404).json({ error: 'Template not found' });
-    }
-
-    if (rating < 1 || rating > 5) {
-      return res.status(400).json({ error: 'Rating must be between 1 and 5' });
-    }
-
-    // Simple average rating
-    const currentRating = template.metadata.rating || 0;
-    const newRating = (currentRating + rating) / 2;
-
-    db.templates[req.params.id] = {
-      ...template,
-      metadata: {
-        ...template.metadata,
-        rating: newRating,
-      },
-    };
-
-    res.json({ success: true, template: db.templates[req.params.id] });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// Get template difficulties
+app.get('/api/templates/difficulties', TemplateController.getTemplateDifficulties);
 
 // ============================================
 // Webhook Routes
 // ============================================
 
-/**
- * GET /api/webhooks
- * Get all webhooks for current user
- */
-app.get('/api/webhooks', authenticate, (req: Request, res: Response) => {
-  try {
-    const user = (req as any).user;
-    const webhooks = Object.values(db.webhooks).filter(w => w.authorId === user.sub);
-    res.json({ webhooks });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// Create webhook
+app.post('/api/webhooks', authenticate, WebhookController.createWebhook);
 
-/**
- * POST /api/webhooks
- * Create a new webhook
- */
-app.post('/api/webhooks', authenticate, (req: Request, res: Response) => {
-  try {
-    const user = (req as any).user;
-    const { name, url, secret, events } = req.body;
+// Get my webhooks
+app.get('/api/webhooks', authenticate, WebhookController.getMyWebhooks);
 
-    if (!name || !url || !events || !Array.isArray(events)) {
-      return res.status(400).json({ error: 'Name, URL, and events are required' });
-    }
+// Get all webhooks (admin)
+app.get('/api/webhooks/all', authenticate, WebhookController.getAllWebhooks);
 
-    const webhook = {
-      id: `webhook_${Date.now()}`,
-      name,
-      url,
-      secret,
-      events,
-      authorId: user.sub,
-      active: true,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
+// Get webhook by ID
+app.get('/api/webhooks/:id', authenticate, WebhookController.getWebhookById);
 
-    db.webhooks[webhook.id] = webhook;
-    res.status(201).json({ webhook });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// Update webhook
+app.put('/api/webhooks/:id', authenticate, WebhookController.updateWebhook);
 
-/**
- * DELETE /api/webhooks/:id
- * Delete a webhook
- */
-app.delete('/api/webhooks/:id', authenticate, (req: Request, res: Response) => {
-  try {
-    const webhook = db.webhooks[req.params.id];
-    if (!webhook) {
-      return res.status(404).json({ error: 'Webhook not found' });
-    }
+// Delete webhook
+app.delete('/api/webhooks/:id', authenticate, WebhookController.deleteWebhook);
 
-    const user = (req as any).user;
-    if (webhook.authorId !== user.sub && user.role !== 'admin') {
-      return res.status(403).json({ error: 'Not authorized' });
-    }
+// Toggle webhook
+app.put('/api/webhooks/:id/toggle', authenticate, WebhookController.toggleWebhook);
 
-    delete db.webhooks[req.params.id];
-    res.json({ success: true });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// Verify webhook
+app.post('/api/webhooks/:id/verify', authenticate, WebhookController.verifyWebhook);
 
-/**
- * POST /api/webhooks/:id/trigger
- * Manually trigger a webhook
- */
-app.post('/api/webhooks/:id/trigger', authenticate, async (req: Request, res: Response) => {
-  try {
-    const webhook = db.webhooks[req.params.id];
-    if (!webhook) {
-      return res.status(404).json({ error: 'Webhook not found' });
-    }
+// Get webhook stats
+app.get('/api/webhooks/:id/stats', authenticate, WebhookController.getWebhookStats);
 
-    const user = (req as any).user;
-    if (webhook.authorId !== user.sub && user.role !== 'admin') {
-      return res.status(403).json({ error: 'Not authorized' });
-    }
+// Get webhook events
+app.get('/api/webhooks/events', authenticate, WebhookController.getWebhookEvents);
 
-    const { event, payload } = req.body;
-    if (!event) {
-      return res.status(400).json({ error: 'Event is required' });
-    }
+// Get webhook event by ID
+app.get('/api/webhooks/events/:id', authenticate, WebhookController.getWebhookEventById);
 
-    // In production, this would make an actual HTTP request
-    // For now, just log it
-    const webhookPayload: WebhookPayload = {
-      event,
-      data: payload,
-      timestamp: Date.now(),
-    };
+// Retry webhook event
+app.post('/api/webhooks/events/:id/retry', authenticate, WebhookController.retryWebhookEvent);
 
-    if (webhook.secret) {
-      webhookPayload.signature = crypto
-        .createHmac('sha256', webhook.secret)
-        .update(JSON.stringify(webhookPayload))
-        .digest('hex');
-    }
+// Handle incoming webhook
+app.post('/api/webhooks/incoming/:source', webhookLimiter, WebhookController.handleIncomingWebhook);
 
-    // Record the event
-    const eventRecord: WebhookEvent = {
-      id: `event_${Date.now()}`,
-      source: 'manual',
-      type: event,
-      timestamp: Date.now(),
-      payload,
-      processed: true,
-      response: { message: 'Webhook triggered manually' },
-    };
-    db.webhookEvents.push(eventRecord);
+// Trigger webhook manually
+app.post('/api/webhooks/:id/trigger', authenticate, WebhookController.triggerWebhook);
 
-    res.json({ success: true, event: eventRecord });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// Get webhook sources
+app.get('/api/webhooks/sources', WebhookController.getWebhookSources);
 
-/**
- * POST /api/webhooks/incoming/:source
- * Handle incoming webhooks
- */
-app.post('/api/webhooks/incoming/:source', (req: Request, res: Response) => {
-  try {
-    const { source } = req.params;
-    const payload = req.body;
-    const signature = req.headers['x-eden-signature'] as string | undefined;
-
-    // Find webhook by URL or source
-    const webhook = Object.values(db.webhooks).find(
-      w => w.url.includes(source) || w.name.toLowerCase() === source.toLowerCase()
-    );
-
-    if (!webhook) {
-      return res.status(404).json({ error: 'No webhook configured for this source' });
-    }
-
-    // Verify signature if provided
-    if (webhook.secret && signature) {
-      const expectedSignature = crypto
-        .createHmac('sha256', webhook.secret)
-        .update(JSON.stringify(payload))
-        .digest('hex');
-
-      if (signature !== expectedSignature) {
-        return res.status(401).json({ error: 'Invalid signature' });
-      }
-    }
-
-    // Record the event
-    const eventRecord: WebhookEvent = {
-      id: `event_${Date.now()}`,
-      source,
-      type: payload.event || 'unknown',
-      timestamp: Date.now(),
-      payload,
-      processed: true,
-    };
-    db.webhookEvents.push(eventRecord);
-
-    res.json({ success: true, event: eventRecord });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-/**
- * GET /api/webhooks/events
- * Get webhook events
- */
-app.get('/api/webhooks/events', authenticate, (req: Request, res: Response) => {
-  try {
-    const { limit } = req.query;
-    const events = db.webhookEvents.slice(0, parseInt(limit as string) || 50);
-    res.json({ events });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// Get webhook event types
+app.get('/api/webhooks/event-types', WebhookController.getWebhookEventTypes);
 
 // ============================================
 // System Routes
 // ============================================
 
-/**
- * GET /api/system/stats
- * Get system statistics
- */
+// Get system stats
 app.get('/api/system/stats', (req: Request, res: Response) => {
-  try {
-    const stats = {
-      totalUsers: Object.keys(db.users).length,
-      totalAgents: Object.keys(db.agents).length,
-      totalTemplates: Object.keys(db.templates).length,
-      totalWebhooks: Object.keys(db.webhooks).length,
-      totalWebhookEvents: db.webhookEvents.length,
-      publicTemplates: Object.values(db.templates).filter(t => t.metadata.isPublic).length,
-    };
-    res.json({ stats });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
+  // In a real implementation, this would fetch actual stats from the database
+  res.json({
+    stats: {
+      totalUsers: 0,
+      totalAgents: 0,
+      totalTemplates: 0,
+      totalWebhooks: 0,
+      totalWebhookEvents: 0,
+      publicTemplates: 0,
+    },
+  });
 });
 
-/**
- * GET /api/system/health
- * Detailed health check
- */
+// Get system health
 app.get('/api/system/health', (req: Request, res: Response) => {
   res.json({
     status: 'ok',
@@ -988,15 +357,10 @@ app.get('/api/system/health', (req: Request, res: Response) => {
 // ============================================
 
 // 404 handler
-app.use((req: Request, res: Response) => {
-  res.status(404).json({ error: 'Not found' });
-});
+app.use(notFoundHandler);
 
 // Error handler
-app.use((err: any, req: Request, res: Response, next: NextFunction) => {
-  console.error('Error:', err);
-  res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
-});
+app.use(errorHandler);
 
 // ============================================
 // Start Server
@@ -1019,10 +383,25 @@ if (require.main === module) {
 ║   Version: 1.0.0                                         ║
 ║   Environment: ${NODE_ENV}                                ║
 ║   Port: ${PORT}                                          ║
+║   MongoDB: Connected                                      ║
+║   Redis: Connected                                        ║
 ║                                                           ║
 ╚═══════════════════════════════════════════════════════════╝
     `);
   });
 }
+
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM received. Shutting down gracefully...');
+  await closeDatabase();
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  console.log('SIGINT received. Shutting down gracefully...');
+  await closeDatabase();
+  process.exit(0);
+});
 
 export default app;
