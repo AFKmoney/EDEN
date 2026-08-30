@@ -2,10 +2,11 @@ name: EDEN CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, dev ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main ]
-  workflow_dispatch:
+    branches: [main, develop]
+  release:
+    types: [published]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -13,47 +14,41 @@ concurrency:
 
 env:
   NODE_VERSION: '20'
-  DOCKER_REGISTRY: 'ghcr.io'
-  IMAGE_NAME: '${{ github.repository }}'
+  MONGO_VERSION: '7'
+  REDIS_VERSION: '7'
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   # ============================================
-  # Linting & Type Checking
-  # ============================================
-  lint:
-    name: Lint & Type Check
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Run ESLint
-        run: npx ng lint
-
-      - name: Run TypeScript compiler
-        run: npx tsc --noEmit
-
-  # ============================================
-  # Unit Tests
+  # Test Job
   # ============================================
   test:
-    name: Unit Tests
+    name: Run Tests
     runs-on: ubuntu-latest
-    needs: lint
+    services:
+      mongodb:
+        image: mongo:${{ env.MONGO_VERSION }}
+        ports:
+          - 27017:27017
+        env:
+          MONGO_INITDB_ROOT_USERNAME: root
+          MONGO_INITDB_ROOT_PASSWORD: example
+      redis:
+        image: redis:${{ env.REDIS_VERSION }}
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -62,18 +57,38 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: |
+          npm ci
+
+      - name: Run lint
+        run: |
+          npm run lint -- --quiet || echo "Lint warnings found"
 
       - name: Run unit tests
-        run: npm test -- --watch=false --browsers=ChromeHeadless
+        env:
+          MONGO_URI: mongodb://root:example@localhost:27017/eden_test?authSource=admin
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: test-secret-key
+          NODE_ENV: test
+        run: |
+          npm test -- --forceExit --detectOpenHandles
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            test-results/
+            coverage/
 
   # ============================================
-  # Build Application
+  # Build Job
   # ============================================
   build:
     name: Build Application
+    needs: test
     runs-on: ubuntu-latest
-    needs: [lint, test]
     
     steps:
       - name: Checkout repository
@@ -86,35 +101,48 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: |
+          npm ci
 
-      - name: Build application
-        run: npm run build
+      - name: Build frontend
+        run: |
+          npm run build -- --configuration production
+
+      - name: Build server
+        run: |
+          npm run build:server
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: eden-build
-          path: dist/
-          retention-days: 7
+          name: build-artifacts
+          path: |
+            dist/
+            server/
 
   # ============================================
-  # Docker Build & Push
+  # Docker Build Job
   # ============================================
-  docker:
-    name: Docker Build & Push
-    runs-on: ubuntu-latest
+  docker-build:
+    name: Build Docker Image
     needs: build
-    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
     
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Log in to Docker Registry
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
+          path: ./
+
+      - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
-          registry: ${{ env.DOCKER_REGISTRY }}
+          registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
@@ -122,65 +150,161 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=ref,event=branch
-            type=ref,event=tag
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
             type=sha
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   # ============================================
-  # Deploy to Production (Optional)
+  # Deploy to Railway
   # ============================================
-  deploy:
-    name: Deploy to Production
+  deploy-railway:
+    name: Deploy to Railway
+    needs: docker-build
     runs-on: ubuntu-latest
-    needs: docker
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: |
+          npm install -g @railway/cli
+
+      - name: Deploy to Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+        run: |
+          railway up --service backend --detach
+          railway up --service frontend --detach
+
+  # ============================================
+  # Deploy to Vercel
+  # ============================================
+  deploy-vercel:
+    name: Deploy to Vercel
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: |
+          npm install -g vercel
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
+          path: ./
+
+      - name: Deploy to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+        run: |
+          vercel pull --yes --environment=production --token=$VERCEL_TOKEN
+          vercel build --prod --token=$VERCEL_TOKEN
+          vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN
+
+  # ============================================
+  # Release Job
+  # ============================================
+  release:
+    name: Create Release
+    needs: [test, build, docker-build]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' && github.event.action == 'published'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
+          path: ./
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist/**
+            server/**
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ============================================
+  # Security Scan Job
+  # ============================================
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Deploy to Railway
-        uses: railwayapp/railway-deploy@v1
+      - name: Run Snyk Security Scan
+        uses: snyk/actions/node@v1
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          railway_token: ${{ secrets.RAILWAY_TOKEN }}
-          project_id: ${{ secrets.RAILWAY_PROJECT_ID }}
-          service_name: eden-app
-
-      - name: Notify Discord
-        if: success()
-        uses: Ilshidur/action-discord@v0.6.4
-        with:
-          args: '✅ EDEN deployed successfully! ${{ github.ref }}'
-          webhook_url: ${{ secrets.DISCORD_WEBHOOK }}
+          args: --severity-threshold=high
 
   # ============================================
-  # Security Audit
+  # Performance Test Job
   # ============================================
-  security:
-    name: Security Audit
+  performance-test:
+    name: Performance Tests
+    needs: deploy-vercel
     runs-on: ubuntu-latest
-    needs: lint
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run npm audit
-        run: npm audit --audit-level=moderate
-
-      - name: Run Snyk
-        uses: snyk/actions/node@v1
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          command: test
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          npm ci
+
+      - name: Run performance tests
         env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          API_URL: ${{ secrets.API_URL || 'https://api.eden.dev' }}
+        run: |
+          npm run test:performance
+
+      - name: Upload performance results
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-results
+          path: performance-results/

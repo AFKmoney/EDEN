@@ -1,0 +1,346 @@
+name: EDEN Monitoring
+
+on:
+  schedule:
+    # Run every 5 minutes
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+    inputs:
+      check:
+        description: 'Which check to run'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - health
+          - uptime
+          - performance
+
+concurrency:
+  group: monitoring-${{ github.event_name }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # ============================================
+  # Health Check
+  # ============================================
+  health-check:
+    name: Health Check
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.check == 'all' || github.event.inputs.check == 'health' }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          npm ci
+
+      - name: Run health check
+        env:
+          API_URL: ${{ secrets.API_URL || 'https://api.eden.dev' }}
+          MONGO_URI: ${{ secrets.MONGO_URI }}
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+        run: |
+          # Install curl if not available
+          sudo apt-get update && sudo apt-get install -y curl jq
+          
+          # Health check endpoint
+          response=$(curl -s -o /dev/null -w "%{http_code}" ${API_URL}/api/health)
+          
+          if [ "$response" != "200" ]; then
+            echo "❌ Health check failed: HTTP $response"
+            exit 1
+          fi
+          
+          # Check database connection
+          health=$(curl -s ${API_URL}/api/health)
+          
+          if [[ "$health" != *"\"status\":\"ok\""* ]]; then
+            echo "❌ Health check failed: $health"
+            exit 1
+          fi
+          
+          echo "✅ Health check passed"
+
+      - name: Send health alert
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              issue_number: 1, // Use a monitoring issue
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `⚠️ **Health Check Failed**\n\n${{ env.API_URL || 'https://api.eden.dev' }} is not responding correctly.\n\nPlease investigate immediately.`
+            });
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ============================================
+  # Uptime Check
+  # ============================================
+  uptime-check:
+    name: Uptime Check
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.check == 'all' || github.event.inputs.check == 'uptime' }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Uptime check
+        env:
+          API_URL: ${{ secrets.API_URL || 'https://api.eden.dev' }}
+        run: |
+          # Install curl
+          sudo apt-get update && sudo apt-get install -y curl
+          
+          # Check if API is up
+          response=$(curl -s -o /dev/null -w "%{http_code}" ${API_URL}/api/health)
+          
+          if [ "$response" != "200" ]; then
+            echo "❌ Uptime check failed: HTTP $response"
+            
+            # Get current time
+            current_time=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+            
+            # Create uptime report
+            echo "{\"timestamp\":\"$current_time\",\"status\":\"down\",\"url\":\"${API_URL}\",\"http_code\":$response}" > uptime-report.json
+            
+            exit 1
+          fi
+          
+          echo "✅ Uptime check passed"
+          current_time=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          echo "{\"timestamp\":\"$current_time\",\"status\":\"up\",\"url\":\"${API_URL}\",\"http_code\":200}" > uptime-report.json
+
+      - name: Upload uptime report
+        uses: actions/upload-artifact@v4
+        with:
+          name: uptime-report
+          path: uptime-report.json
+
+      - name: Send uptime alert
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = JSON.parse(fs.readFileSync('uptime-report.json', 'utf8'));
+            
+            await github.rest.issues.createComment({
+              issue_number: 1,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `⚠️ **Service Down**\n\n**URL:** ${report.url}\n**Time:** ${report.timestamp}\n**Status:** ${report.status}\n**HTTP Code:** ${report.http_code}\n\nPlease investigate immediately.`
+            });
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ============================================
+  # Performance Monitoring
+  # ============================================
+  performance-monitor:
+    name: Performance Monitor
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.check == 'all' || github.event.inputs.check == 'performance' }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          npm ci
+
+      - name: Run performance tests
+        env:
+          API_URL: ${{ secrets.API_URL || 'https://api.eden.dev' }}
+        run: |
+          # Install required tools
+          sudo apt-get update && sudo apt-get install -y curl jq bc
+          
+          # Create performance report
+          echo '[' > performance-report.json
+          
+          # Test health endpoint
+          start=$(date +%s%N)
+          curl -s -o /dev/null ${API_URL}/api/health > /dev/null
+          end=$(date +%s%N)
+          health_time=$((($end - $start) / 1000000))
+          echo "  {\"endpoint\":\"/api/health\",\"time_ms\":$health_time}," >> performance-report.json
+          
+          # Test users endpoint (if auth is available)
+          start=$(date +%s%N)
+          curl -s -o /dev/null ${API_URL}/api/users > /dev/null
+          end=$(date +%s%N)
+          users_time=$((($end - $start) / 1000000))
+          echo "  {\"endpoint\":\"/api/users\",\"time_ms\":$users_time}," >> performance-report.json
+          
+          # Test templates endpoint
+          start=$(date +%s%N)
+          curl -s -o /dev/null ${API_URL}/api/templates > /dev/null
+          end=$(date +%s%N)
+          templates_time=$((($end - $start) / 1000000))
+          echo "  {\"endpoint\":\"/api/templates\",\"time_ms\":$templates_time}" >> performance-report.json
+          
+          echo ']' >> performance-report.json
+          
+          # Calculate average
+          total=$((health_time + users_time + templates_time))
+          avg=$((total / 3))
+          
+          echo "Average response time: ${avg}ms"
+          
+          # Check if performance is acceptable
+          if [ $avg -gt 1000 ]; then
+            echo "⚠️ Performance warning: Average response time > 1s"
+          fi
+
+      - name: Upload performance report
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-report
+          path: performance-report.json
+
+      - name: Send performance alert
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = JSON.parse(fs.readFileSync('performance-report.json', 'utf8'));
+            
+            const avgTime = report.reduce((sum: number, item: any) => sum + item.time_ms, 0) / report.length;
+            
+            await github.rest.issues.createComment({
+              issue_number: 1,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `⚠️ **Performance Degradation**\n\n**Average Response Time:** ${avgTime.toFixed(2)}ms\n\nEndpoint Performance:\n${report.map((item: any) => `- ${item.endpoint}: ${item.time_ms}ms`).join('\n')}\n\nPlease investigate performance issues.`
+            });
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ============================================
+  # Database Monitoring
+  # ============================================
+  database-monitor:
+    name: Database Monitor
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.check == 'all' }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          npm ci
+
+      - name: Check database connection
+        env:
+          MONGO_URI: ${{ secrets.MONGO_URI }}
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+        run: |
+          # Install mongodb-tools for MongoDB
+          sudo apt-get update && sudo apt-get install -y gnupg
+          wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc | sudo apt-key add -
+          echo "deb http://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/6.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
+          sudo apt-get update && sudo apt-get install -y mongodb-database-tools
+          
+          # Check MongoDB connection
+          if [ -n "$MONGO_URI" ]; then
+            echo "Checking MongoDB connection..."
+            mongostat --host "${MONGO_URI#mongodb://}" --username "${MONGO_URI#*://}" --password "${MONGO_URI#*:*@}" --authenticationDatabase admin --ssl 1 --quiet 1 || echo "⚠️ MongoDB connection check failed"
+          fi
+          
+          # Check Redis connection
+          if [ -n "$REDIS_URL" ]; then
+            echo "Checking Redis connection..."
+            redis-cli -h "${REDIS_URL#redis://}" ping || echo "⚠️ Redis connection check failed"
+          fi
+          
+          echo "✅ Database monitoring completed"
+
+  # ============================================
+  # Notification Summary
+  # ============================================
+  notification-summary:
+    name: Notification Summary
+    needs: [health-check, uptime-check, performance-monitor, database-monitor]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate monitoring report
+        run: |
+          mkdir -p monitoring-reports
+          echo "# Monitoring Report - $(date -u +"%Y-%m-%dT%H:%M:%SZ")" > monitoring-reports/report.md
+          echo "" >> monitoring-reports/report.md
+          echo "## Health Check" >> monitoring-reports/report.md
+          echo "Status: ${{ needs.health-check.result }}" >> monitoring-reports/report.md
+          echo "" >> monitoring-reports/report.md
+          echo "## Uptime Check" >> monitoring-reports/report.md
+          echo "Status: ${{ needs.uptime-check.result }}" >> monitoring-reports/report.md
+          echo "" >> monitoring-reports/report.md
+          echo "## Performance Monitor" >> monitoring-reports/report.md
+          echo "Status: ${{ needs.performance-monitor.result }}" >> monitoring-reports/report.md
+          echo "" >> monitoring-reports/report.md
+          echo "## Database Monitor" >> monitoring-reports/report.md
+          echo "Status: ${{ needs.database-monitor.result }}" >> monitoring-reports/report.md
+
+      - name: Upload monitoring report
+        uses: actions/upload-artifact@v4
+        with:
+          name: monitoring-report
+          path: monitoring-reports/
+
+      - name: Send monitoring summary
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('monitoring-reports/report.md', 'utf8');
+            
+            const allPassed = 
+              '${{ needs.health-check.result }}' === 'success' &&
+              '${{ needs.uptime-check.result }}' === 'success' &&
+              '${{ needs.performance-monitor.result }}' === 'success' &&
+              '${{ needs.database-monitor.result }}' === 'success';
+            
+            const status = allPassed ? '✅ All checks passed' : '⚠️ Some checks failed';
+            
+            await github.rest.issues.createComment({
+              issue_number: 1,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `${status}\n\n${report}`
+            });
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
