@@ -7,10 +7,13 @@ import express, { Request, Response, NextFunction, Application } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import { createServer } from 'http';
 import { initializeDatabase, closeDatabase } from './config/database';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { apiLimiter, authLimiter, webhookLimiter } from './middleware/rateLimit';
 import { authenticate, optionalAuthenticate } from './middleware/auth';
+import { initializeMonitoring } from './middleware/monitoring';
+import { webSocketService } from './services/WebSocketService';
 
 // Import controllers
 import * as UserController from './controllers/UserController';
@@ -21,9 +24,18 @@ import * as WebhookController from './controllers/WebhookController';
 // Configuration
 const PORT = process.env.PORT || 4000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
+const ENABLE_WEBSOCKET = process.env.ENABLE_WEBSOCKET !== 'false';
 
 // Initialize Express
 const app: Application = express();
+
+// Create HTTP server
+const httpServer = createServer(app);
+
+// Initialize WebSocket if enabled
+if (ENABLE_WEBSOCKET) {
+  webSocketService.startServer(httpServer);
+}
 
 // ============================================
 // Middleware
