@@ -7,7 +7,7 @@ import { Request, Response, NextFunction } from 'express';
 import { getRedisClient } from '../config/database';
 
 // Configuration
-const NODE_ENV = process.env.NODE_ENV || 'development';
+const NODE_ENV = process.env["NODE_ENV"] || 'development';
 
 /**
  * Rate limiter options

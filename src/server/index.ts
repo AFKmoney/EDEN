@@ -22,9 +22,9 @@ import * as TemplateController from './controllers/TemplateController';
 import * as WebhookController from './controllers/WebhookController';
 
 // Configuration
-const PORT = process.env.PORT || 4000;
-const NODE_ENV = process.env.NODE_ENV || 'development';
-const ENABLE_WEBSOCKET = process.env.ENABLE_WEBSOCKET !== 'false';
+const PORT = process.env["PORT"] || 4000;
+const NODE_ENV = process.env["NODE_ENV"] || 'development';
+const ENABLE_WEBSOCKET = process.env["ENABLE_WEBSOCKET"] !== 'false';
 
 // Initialize Express
 const app: Application = express();
@@ -60,7 +60,7 @@ app.use(helmet({
 
 // CORS configuration
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
+  origin: process.env["CORS_ORIGIN"] || '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-EDEN-Signature'],
   credentials: true,

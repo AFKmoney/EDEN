@@ -44,7 +44,7 @@ export class AuthService {
     error: null
   });
 
-  public readonly state = this.authState.asReadonly();
+  public readonly state = this.authState.asReadonly() as any as any;
 
   constructor() {
     this.initialize();

@@ -10,11 +10,11 @@ import { sendWelcomeEmail, sendVerificationEmail, sendPasswordResetEmail } from 
 import { AppError, AuthenticationError, ValidationError, ConflictError, NotFoundError } from '../middleware/errorHandler';
 
 // Configuration
-const BASE_URL = process.env.BASE_URL || 'http://localhost:4000';
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
-const VERIFICATION_TOKEN_EXPIRES_IN = parseInt(process.env.VERIFICATION_TOKEN_EXPIRES_IN || '86400'); // 24 hours
-const PASSWORD_RESET_TOKEN_EXPIRES_IN = parseInt(process.env.PASSWORD_RESET_TOKEN_EXPIRES_IN || '3600'); // 1 hour
+const BASE_URL = process.env["BASE_URL"] || 'http://localhost:4000';
+const JWT_SECRET = process.env["JWT_SECRET"] || 'your-secret-key';
+const JWT_EXPIRES_IN = process.env["JWT_EXPIRES_IN"] || '24h';
+const VERIFICATION_TOKEN_EXPIRES_IN = parseInt(process.env["VERIFICATION_TOKEN_EXPIRES_IN"] || '86400'); // 24 hours
+const PASSWORD_RESET_TOKEN_EXPIRES_IN = parseInt(process.env["PASSWORD_RESET_TOKEN_EXPIRES_IN"] || '3600'); // 1 hour
 
 // Token blacklist prefix
 const TOKEN_BLACKLIST_PREFIX = 'blacklist:token:';
@@ -70,7 +70,7 @@ export class UserService implements IUserService {
       await user.save();
 
       // Send welcome email (in production)
-      if (process.env.NODE_ENV === 'production' && process.env.SMTP_HOST) {
+      if (process.env["NODE_ENV"] === 'production' && process.env["SMTP_HOST"]) {
         const verificationUrl = `${BASE_URL}/api/auth/verify?token=${verificationToken}`;
         await sendWelcomeEmail(user.email, user.name, BASE_URL);
         await sendVerificationEmail(user.email, user.name, verificationUrl);
@@ -303,7 +303,7 @@ export class UserService implements IUserService {
       await user.save();
 
       // Send password reset email
-      if (process.env.NODE_ENV === 'production' && process.env.SMTP_HOST) {
+      if (process.env["NODE_ENV"] === 'production' && process.env["SMTP_HOST"]) {
         const resetUrl = `${BASE_URL}/api/auth/reset-password?token=${token}`;
         await sendPasswordResetEmail(user.email, user.name, resetUrl);
       }
@@ -343,7 +343,7 @@ export class UserService implements IUserService {
       await user.save();
 
       // Send notification email
-      if (process.env.NODE_ENV === 'production' && process.env.SMTP_HOST) {
+      if (process.env["NODE_ENV"] === 'production' && process.env["SMTP_HOST"]) {
         await sendNotificationEmail(
           user.email,
           user.name,
@@ -429,10 +429,10 @@ export class UserService implements IUserService {
     try {
       // Prevent updating sensitive fields through profile
       const safeData = { ...data };
-      delete safeData.password;
-      delete safeData.role;
-      delete safeData.isActive;
-      delete safeData.isVerified;
+      delete (safeData as any).password;
+      delete (safeData as any).role;
+      delete (safeData as any).isActive;
+      delete (safeData as any).isVerified;
 
       const user = await UserModel.findByIdAndUpdate(
         id,

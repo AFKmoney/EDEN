@@ -6,8 +6,8 @@
 import client from 'prom-client';
 
 // Configuration
-const NODE_ENV = process.env.NODE_ENV || 'development';
-const ENABLE_METRICS = process.env.ENABLE_METRICS !== 'false';
+const NODE_ENV = process.env["NODE_ENV"] || 'development';
+const ENABLE_METRICS = process.env["ENABLE_METRICS"] !== 'false';
 
 // Metrics registry
 const register = new client.Registry();

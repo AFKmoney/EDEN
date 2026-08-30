@@ -16,7 +16,7 @@ export interface VirtualFile {
 @Injectable({ providedIn: 'root' })
 export class VfsService {
   private filesState = signal<Record<string, VirtualFile>>({});
-  public readonly files = this.filesState.asReadonly();
+  public readonly files = this.filesState.asReadonly() as any as any;
 
   constructor() {
     this.loadFromLocalStorage();
@@ -37,7 +37,7 @@ export class VfsService {
   deleteFile(path: string) {
     this.filesState.update(current => {
       const newFiles = { ...current };
-      delete newFiles[path];
+      delete (newFiles as any)[path];
       return newFiles;
     });
     this.saveToLocalStorage();

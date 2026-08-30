@@ -146,7 +146,7 @@ export function errorHandler(
   res: Response,
   next: NextFunction
 ) {
-  const NODE_ENV = process.env.NODE_ENV || 'development';
+  const NODE_ENV = process.env["NODE_ENV"] || 'development';
   const includeStack = NODE_ENV === 'development';
 
   // Handle Mongoose validation errors
@@ -191,11 +191,11 @@ export function errorHandler(
  * Async handler wrapper
  * Wraps async route handlers to catch errors
  */
-export function asyncHandler(
-  fn: (req: Request, res: Response, next: NextFunction) => Promise<any>
-) {
+export function asyncHandler<T>(fn: (req: Request, res: Response, next: NextFunction) => T): (req: Request, res: Response, next: NextFunction) => void<T>(
+  fn: (req: Request, res: Response, next: NextFunction) => Promise<T>
+): (req: Request, res: Response, next: NextFunction) => Promise<void> {
   return (req: Request, res: Response, next: NextFunction) => {
-    Promise.resolve(fn(req, res, next)).catch((err) => {
+    return Promise.resolve(fn(req, res, next)).catch((err) => {
       errorHandler(err, req, res, next);
     });
   };

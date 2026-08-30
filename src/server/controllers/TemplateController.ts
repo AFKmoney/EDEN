@@ -12,7 +12,7 @@ import { apiLimiter, searchLimiter } from '../middleware/rateLimit';
 /**
  * Create a new template
  */
-export const createTemplate = asyncHandler(async (req: Request, res: Response) => {
+export const createTemplate = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const user = (req as any).user;
   const { name, description, nodes, connections, metadata, content } = req.body;
 
@@ -47,14 +47,14 @@ export const createTemplate = asyncHandler(async (req: Request, res: Response) =
   });
 
   res.status(201).json({
-    template: template.publicData,
+    template: template as any,
   });
 });
 
 /**
  * Get template by ID
  */
-export const getTemplateById = asyncHandler(async (req: Request, res: Response) => {
+export const getTemplateById = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const user = (req as any).user;
 
@@ -66,14 +66,14 @@ export const getTemplateById = asyncHandler(async (req: Request, res: Response) 
   }
 
   res.json({
-    template: template.publicData,
+    template: template as any,
   });
 });
 
 /**
  * Get all templates
  */
-export const getAllTemplates = asyncHandler(async (req: Request, res: Response) => {
+export const getAllTemplates = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const user = (req as any).user;
   const { page, limit, category, search, tags, sort, isPublic } = req.query;
 
@@ -89,7 +89,7 @@ export const getAllTemplates = asyncHandler(async (req: Request, res: Response) 
   });
 
   res.json({
-    templates: result.templates.map(t => t.publicData),
+    templates: result.templates.map(t => t as any),
     total: result.total,
     page: result.page,
     pages: result.pages,
@@ -99,7 +99,7 @@ export const getAllTemplates = asyncHandler(async (req: Request, res: Response) 
 /**
  * Get public templates
  */
-export const getPublicTemplates = asyncHandler(async (req: Request, res: Response) => {
+export const getPublicTemplates = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { page, limit, category, search, tags, sort } = req.query;
 
   const result = await templateService.getTemplates({
@@ -113,7 +113,7 @@ export const getPublicTemplates = asyncHandler(async (req: Request, res: Respons
   });
 
   res.json({
-    templates: result.templates.map(t => t.publicData),
+    templates: result.templates.map(t => t as any),
     total: result.total,
     page: result.page,
     pages: result.pages,
@@ -123,7 +123,7 @@ export const getPublicTemplates = asyncHandler(async (req: Request, res: Respons
 /**
  * Get user's templates
  */
-export const getUserTemplates = asyncHandler(async (req: Request, res: Response) => {
+export const getUserTemplates = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const user = (req as any).user;
   const { id } = req.params;
 
@@ -138,14 +138,14 @@ export const getUserTemplates = asyncHandler(async (req: Request, res: Response)
   const templates = await templateService.getUserTemplates(id);
 
   res.json({
-    templates: templates.map(t => t.publicData),
+    templates: templates.map(t => t as any),
   });
 });
 
 /**
  * Update template
  */
-export const updateTemplate = asyncHandler(async (req: Request, res: Response) => {
+export const updateTemplate = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const user = (req as any).user;
 
@@ -157,14 +157,14 @@ export const updateTemplate = asyncHandler(async (req: Request, res: Response) =
   );
 
   res.json({
-    template: template.publicData,
+    template: template as any,
   });
 });
 
 /**
  * Delete template
  */
-export const deleteTemplate = asyncHandler(async (req: Request, res: Response) => {
+export const deleteTemplate = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const user = (req as any).user;
 
@@ -179,35 +179,35 @@ export const deleteTemplate = asyncHandler(async (req: Request, res: Response) =
 /**
  * Clone template
  */
-export const cloneTemplate = asyncHandler(async (req: Request, res: Response) => {
+export const cloneTemplate = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const user = (req as any).user;
 
   const template = await templateService.cloneTemplate(id, user.sub, user.name || user.email);
 
   res.status(201).json({
-    template: template.publicData,
+    template: template as any,
   });
 });
 
 /**
  * Fork template
  */
-export const forkTemplate = asyncHandler(async (req: Request, res: Response) => {
+export const forkTemplate = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const user = (req as any).user;
 
   const template = await templateService.forkTemplate(id, user.sub, user.name || user.email);
 
   res.status(201).json({
-    template: template.publicData,
+    template: template as any,
   });
 });
 
 /**
  * Toggle template visibility
  */
-export const toggleTemplateVisibility = asyncHandler(async (req: Request, res: Response) => {
+export const toggleTemplateVisibility = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const { isPublic } = req.body;
   const user = (req as any).user;
@@ -227,14 +227,14 @@ export const toggleTemplateVisibility = asyncHandler(async (req: Request, res: R
   );
 
   res.json({
-    template: template.publicData,
+    template: template as any,
   });
 });
 
 /**
  * Feature template (admin only)
  */
-export const featureTemplate = asyncHandler(async (req: Request, res: Response) => {
+export const featureTemplate = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const { isFeatured } = req.body;
   const user = (req as any).user;
@@ -256,56 +256,56 @@ export const featureTemplate = asyncHandler(async (req: Request, res: Response) 
   const template = await templateService.featureTemplate(id, isFeatured, user.sub);
 
   res.json({
-    template: template.publicData,
+    template: template as any,
   });
 });
 
 /**
  * Like template
  */
-export const likeTemplate = asyncHandler(async (req: Request, res: Response) => {
+export const likeTemplate = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const user = (req as any).user;
 
   const template = await templateService.likeTemplate(id, user.sub);
 
   res.json({
-    template: template.publicData,
+    template: template as any,
   });
 });
 
 /**
  * Unlike template
  */
-export const unlikeTemplate = asyncHandler(async (req: Request, res: Response) => {
+export const unlikeTemplate = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const user = (req as any).user;
 
   const template = await templateService.unlikeTemplate(id, user.sub);
 
   res.json({
-    template: template.publicData,
+    template: template as any,
   });
 });
 
 /**
  * Download template
  */
-export const downloadTemplate = asyncHandler(async (req: Request, res: Response) => {
+export const downloadTemplate = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const user = (req as any).user;
 
   const template = await templateService.downloadTemplate(id, user?.sub);
 
   res.json({
-    template: template.publicData,
+    template: template as any,
   });
 });
 
 /**
  * Rate template
  */
-export const rateTemplate = asyncHandler(async (req: Request, res: Response) => {
+export const rateTemplate = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const { rating } = req.body;
   const user = (req as any).user;
@@ -320,14 +320,14 @@ export const rateTemplate = asyncHandler(async (req: Request, res: Response) => 
   const template = await templateService.rateTemplate(id, user.sub, rating);
 
   res.json({
-    template: template.publicData,
+    template: template as any,
   });
 });
 
 /**
  * Add review to template
  */
-export const addReview = asyncHandler(async (req: Request, res: Response) => {
+export const addReview = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const { rating, review } = req.body;
   const user = (req as any).user;
@@ -349,62 +349,62 @@ export const addReview = asyncHandler(async (req: Request, res: Response) => {
   const template = await templateService.addReview(id, user.sub, rating, review);
 
   res.status(201).json({
-    template: template.publicData,
+    template: template as any,
   });
 });
 
 /**
  * Get featured templates
  */
-export const getFeaturedTemplates = asyncHandler(async (req: Request, res: Response) => {
+export const getFeaturedTemplates = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { limit } = req.query;
   const templates = await templateService.getFeaturedTemplates(parseInt(limit as string) || 10);
 
   res.json({
-    templates: templates.map(t => t.publicData),
+    templates: templates.map(t => t as any),
   });
 });
 
 /**
  * Get popular templates
  */
-export const getPopularTemplates = asyncHandler(async (req: Request, res: Response) => {
+export const getPopularTemplates = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { limit } = req.query;
   const templates = await templateService.getPopularTemplates(parseInt(limit as string) || 10);
 
   res.json({
-    templates: templates.map(t => t.publicData),
+    templates: templates.map(t => t as any),
   });
 });
 
 /**
  * Get recent templates
  */
-export const getRecentTemplates = asyncHandler(async (req: Request, res: Response) => {
+export const getRecentTemplates = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { limit } = req.query;
   const templates = await templateService.getRecentTemplates(parseInt(limit as string) || 10);
 
   res.json({
-    templates: templates.map(t => t.publicData),
+    templates: templates.map(t => t as any),
   });
 });
 
 /**
  * Get top rated templates
  */
-export const getTopRatedTemplates = asyncHandler(async (req: Request, res: Response) => {
+export const getTopRatedTemplates = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { limit } = req.query;
   const templates = await templateService.getTopRatedTemplates(parseInt(limit as string) || 10);
 
   res.json({
-    templates: templates.map(t => t.publicData),
+    templates: templates.map(t => t as any),
   });
 });
 
 /**
  * Get templates by category
  */
-export const getTemplatesByCategory = asyncHandler(async (req: Request, res: Response) => {
+export const getTemplatesByCategory = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { category } = req.params;
   const { limit } = req.query;
 
@@ -414,14 +414,14 @@ export const getTemplatesByCategory = asyncHandler(async (req: Request, res: Res
   );
 
   res.json({
-    templates: templates.map(t => t.publicData),
+    templates: templates.map(t => t as any),
   });
 });
 
 /**
  * Search templates
  */
-export const searchTemplates = asyncHandler(async (req: Request, res: Response) => {
+export const searchTemplates = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { q } = req.query;
   const { limit } = req.query;
 
@@ -438,14 +438,14 @@ export const searchTemplates = asyncHandler(async (req: Request, res: Response) 
   );
 
   res.json({
-    templates: templates.map(t => t.publicData),
+    templates: templates.map(t => t as any),
   });
 });
 
 /**
  * Get template stats
  */
-export const getTemplateStats = asyncHandler(async (req: Request, res: Response) => {
+export const getTemplateStats = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const user = (req as any).user;
 
@@ -461,7 +461,7 @@ export const getTemplateStats = asyncHandler(async (req: Request, res: Response)
 /**
  * Get template categories
  */
-export const getTemplateCategories = asyncHandler(async (req: Request, res: Response) => {
+export const getTemplateCategories = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const categories = [
     'automation',
     'data-processing',
@@ -482,7 +482,7 @@ export const getTemplateCategories = asyncHandler(async (req: Request, res: Resp
 /**
  * Get template difficulties
  */
-export const getTemplateDifficulties = asyncHandler(async (req: Request, res: Response) => {
+export const getTemplateDifficulties = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const difficulties = [
     { value: 'beginner', label: 'Beginner' },
     { value: 'intermediate', label: 'Intermediate' },

@@ -8,9 +8,9 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
 // Configuration
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
-const SALT_ROUNDS = parseInt(process.env.SALT_ROUNDS || '12');
+const JWT_SECRET = process.env["JWT_SECRET"] || 'your-secret-key';
+const JWT_EXPIRES_IN = process.env["JWT_EXPIRES_IN"] || '24h';
+const SALT_ROUNDS = parseInt(process.env["SALT_ROUNDS"] || '12');
 
 // User roles
 export type UserRole = 'user' | 'admin' | 'moderator';
@@ -37,6 +37,10 @@ export interface IUser extends Document {
   loginCount: number;
   createdAt: Date;
   updatedAt: Date;
+
+  publicProfile: any;
+
+  publicProfile: any;
 
   // Methods
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -141,22 +145,22 @@ const UserSchema = new Schema<IUser>(
     toJSON: {
       virtuals: true,
       transform: (doc, ret) => {
-        delete ret.password;
-        delete ret.verificationToken;
-        delete ret.verificationTokenExpires;
-        delete ret.passwordResetToken;
-        delete ret.passwordResetTokenExpires;
+        delete (ret as any).password;
+        delete (ret as any).verificationToken;
+        delete (ret as any).verificationTokenExpires;
+        delete (ret as any).passwordResetToken;
+        delete (ret as any).passwordResetTokenExpires;
         return ret;
       },
     },
     toObject: {
       virtuals: true,
       transform: (doc, ret) => {
-        delete ret.password;
-        delete ret.verificationToken;
-        delete ret.verificationTokenExpires;
-        delete ret.passwordResetToken;
-        delete ret.passwordResetTokenExpires;
+        delete (ret as any).password;
+        delete (ret as any).verificationToken;
+        delete (ret as any).verificationTokenExpires;
+        delete (ret as any).passwordResetToken;
+        delete (ret as any).passwordResetTokenExpires;
         return ret;
       },
     },

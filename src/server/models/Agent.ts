@@ -377,7 +377,7 @@ AgentSchema.methods.getNodeCount = function (this: IAgent): number {
 
 // Method to get connection count
 AgentSchema.methods.getConnectionCount = function (this: IAgent): number {
-  return this.connections.length;
+  return (this.connections || []).length;
 };
 
 // Method to get execution statistics
@@ -399,11 +399,11 @@ AgentSchema.methods.getExecutionStats = function (this: IAgent): {
 // Method to clone an agent
 AgentSchema.methods.clone = async function (this: IAgent): Promise<IAgent> {
   const clonedData = this.toObject();
-  delete clonedData._id;
-  delete clonedData.createdAt;
-  delete clonedData.updatedAt;
-  delete clonedData.chainOfThought;
-  delete clonedData.lastExecutionId;
+  delete (clonedData as any)._id;
+  delete (clonedData as any).createdAt;
+  delete (clonedData as any).updatedAt;
+  delete (clonedData as any).chainOfThought;
+  delete (clonedData as any).lastExecutionId;
 
   // Add "Copy" to name
   clonedData.name = `${clonedData.name} (Copy)`;

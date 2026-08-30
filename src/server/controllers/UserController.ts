@@ -12,7 +12,7 @@ import { apiLimiter, authLimiter } from '../middleware/rateLimit';
 /**
  * Register a new user
  */
-export const register = asyncHandler(async (req: Request, res: Response) => {
+export const register = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { email, password, name, role } = req.body;
 
   if (!email || !password || !name) {
@@ -37,7 +37,7 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
 /**
  * Login user
  */
-export const login = asyncHandler(async (req: Request, res: Response) => {
+export const login = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -59,7 +59,7 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
 /**
  * Logout user
  */
-export const logout = asyncHandler(async (req: Request, res: Response) => {
+export const logout = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const token = (req as any).token;
   await userService.logout(token);
 
@@ -72,7 +72,7 @@ export const logout = asyncHandler(async (req: Request, res: Response) => {
 /**
  * Refresh token
  */
-export const refreshToken = asyncHandler(async (req: Request, res: Response) => {
+export const refreshToken = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const token = (req as any).token;
   const { token: newToken } = await userService.refreshToken(token);
 
@@ -85,7 +85,7 @@ export const refreshToken = asyncHandler(async (req: Request, res: Response) => 
 /**
  * Get current user
  */
-export const getMe = asyncHandler(async (req: Request, res: Response) => {
+export const getMe = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const user = (req as any).user;
   const userData = await userService.getUserProfile(user.sub);
 
@@ -97,7 +97,7 @@ export const getMe = asyncHandler(async (req: Request, res: Response) => {
 /**
  * Get user by ID
  */
-export const getUserById = asyncHandler(async (req: Request, res: Response) => {
+export const getUserById = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const user = (req as any).user;
 
@@ -119,7 +119,7 @@ export const getUserById = asyncHandler(async (req: Request, res: Response) => {
 /**
  * Update user profile
  */
-export const updateProfile = asyncHandler(async (req: Request, res: Response) => {
+export const updateProfile = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const user = (req as any).user;
 
@@ -141,7 +141,7 @@ export const updateProfile = asyncHandler(async (req: Request, res: Response) =>
 /**
  * Update user (admin only)
  */
-export const updateUser = asyncHandler(async (req: Request, res: Response) => {
+export const updateUser = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const user = (req as any).user;
 
@@ -162,14 +162,14 @@ export const updateUser = asyncHandler(async (req: Request, res: Response) => {
 /**
  * Delete user
  */
-export const deleteUser = asyncHandler(async (req: Request, res: Response) => {
+export const deleteUser = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const user = (req as any).user;
 
   // Check if user is deleting their own account or is admin
   if (user.sub !== id && user.role !== 'admin') {
     return res.status(403).json({
-      error: 'Not authorized to delete this user',
+      error: 'Not authorized to delete (this as any) user',
       code: 'UNAUTHORIZED',
     });
   }
@@ -185,7 +185,7 @@ export const deleteUser = asyncHandler(async (req: Request, res: Response) => {
 /**
  * Get all users (admin only)
  */
-export const getAllUsers = asyncHandler(async (req: Request, res: Response) => {
+export const getAllUsers = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const user = (req as any).user;
 
   if (user.role !== 'admin') {
@@ -214,7 +214,7 @@ export const getAllUsers = asyncHandler(async (req: Request, res: Response) => {
 /**
  * Verify email
  */
-export const verifyEmail = asyncHandler(async (req: Request, res: Response) => {
+export const verifyEmail = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { token } = req.query;
 
   if (!token || typeof token !== 'string') {
@@ -236,7 +236,7 @@ export const verifyEmail = asyncHandler(async (req: Request, res: Response) => {
 /**
  * Request password reset
  */
-export const requestPasswordReset = asyncHandler(async (req: Request, res: Response) => {
+export const requestPasswordReset = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { email } = req.body;
 
   if (!email) {
@@ -258,7 +258,7 @@ export const requestPasswordReset = asyncHandler(async (req: Request, res: Respo
 /**
  * Reset password
  */
-export const resetPassword = asyncHandler(async (req: Request, res: Response) => {
+export const resetPassword = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { token } = req.query;
   const { newPassword } = req.body;
 
@@ -287,7 +287,7 @@ export const resetPassword = asyncHandler(async (req: Request, res: Response) =>
 /**
  * Check if email is available
  */
-export const checkEmailAvailable = asyncHandler(async (req: Request, res: Response) => {
+export const checkEmailAvailable = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { email } = req.query;
 
   if (!email || typeof email !== 'string') {
@@ -307,7 +307,7 @@ export const checkEmailAvailable = asyncHandler(async (req: Request, res: Respon
 /**
  * Get user stats (for profile page)
  */
-export const getUserStats = asyncHandler(async (req: Request, res: Response) => {
+export const getUserStats = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const user = (req as any).user;
 

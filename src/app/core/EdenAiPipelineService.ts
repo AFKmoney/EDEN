@@ -78,16 +78,16 @@ export class EdenAiPipelineService {
 
     const nodesCompact = Object.values(genome.nodes).map(n => ({
       id: n.id,
-      type: n.type,
-      title: n.metadata.title,
-      ternary: n.ternaryState,
-      gate: n.metadata.gateType,
-      pos: n.position
+      type: (n as any).type,
+      title: (n as any).metadata.title,
+      ternary: (n as any).ternaryState,
+      gate: (n as any).metadata.gateType,
+      pos: (n as any).position
     }));
 
     const edgesCompact = Object.values(genome.edges).map(e => ({
-      src: e.sourceId,
-      tgt: e.targetId
+      src: (e as any).sourceId,
+      tgt: (e as any).targetId
     }));
 
     const filesCompact = files.map(f => ({
@@ -429,23 +429,23 @@ Last action: ${memory.completedActions.slice(-1)[0] || 'None'}`;
           const id = n.id || 'node_ai_' + Math.random().toString(36).substr(2, 9);
           nodesToInject[id] = {
             id,
-            type: n.type || 'Data',
+            type: (n as any).type || 'Data',
             position: {
-              x: baseX + (n.position?.x || index * 300),
-              y: baseY + (n.position?.y || index * 100)
+              x: baseX + ((n as any).position?.x || index * 300),
+              y: baseY + ((n as any).position?.y || index * 100)
             },
-            metadata: n.metadata || { title: 'AI Node', content: '' },
+            metadata: (n as any).metadata || { title: 'AI Node', content: '' },
             ternaryState: 'UNKNOWN'
           };
           injectedNodes++;
         });
 
         parsed.edges?.forEach((e: any) => {
-          const edgeId = 'edge_' + e.sourceId + '_' + e.targetId;
+          const edgeId = 'edge_' + (e as any).sourceId + '_' + (e as any).targetId;
           edgesToInject[edgeId] = {
             id: edgeId,
-            sourceId: e.sourceId,
-            targetId: e.targetId
+            sourceId: (e as any).sourceId,
+            targetId: (e as any).targetId
           };
           injectedEdges++;
         });

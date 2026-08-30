@@ -6,7 +6,7 @@
 import mongoose, { Document, Schema, Model, Types } from 'mongoose';
 
 // Ensure NODE_ENV is defined
-const NODE_ENV = process.env.NODE_ENV || 'development';
+const NODE_ENV = process.env["NODE_ENV"] || 'development';
 
 // Category type
 export type TemplateCategory = 
@@ -63,6 +63,10 @@ export interface ITemplate extends Document {
   rejectionReason: string;
   createdAt: Date;
   updatedAt: Date;
+
+  publicData: any;
+
+  publicData: any;
 
   // Methods
   getRating(): number;
@@ -330,14 +334,14 @@ TemplateSchema.methods.fork = async function (
   newAuthorName: string
 ): Promise<ITemplate> {
   const forkedData = this.toObject();
-  delete forkedData._id;
-  delete forkedData.createdAt;
-  delete forkedData.updatedAt;
-  delete forkedData.stats;
-  delete forkedData.isApproved;
-  delete forkedData.approvedBy;
-  delete forkedData.approvedAt;
-  delete forkedData.rejectionReason;
+  delete (forkedData as any)._id;
+  delete (forkedData as any).createdAt;
+  delete (forkedData as any).updatedAt;
+  delete (forkedData as any).stats;
+  delete (forkedData as any).isApproved;
+  delete (forkedData as any).approvedBy;
+  delete (forkedData as any).approvedAt;
+  delete (forkedData as any).rejectionReason;
 
   // Update fork-specific fields
   forkedData.name = `${forkedData.name} (Fork)`;

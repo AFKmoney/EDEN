@@ -8,10 +8,10 @@ import { format, transports, createLogger } from 'winston';
 import DailyRotateFile from 'winston-daily-rotate-file';
 
 // Configuration
-const NODE_ENV = process.env.NODE_ENV || 'development';
-const LOG_LEVEL = process.env.LOG_LEVEL || (NODE_ENV === 'production' ? 'info' : 'debug');
-const LOG_DIR = process.env.LOG_DIR || './logs';
-const ENABLE_FILE_LOGGING = process.env.ENABLE_FILE_LOGGING !== 'false';
+const NODE_ENV = process.env["NODE_ENV"] || 'development';
+const LOG_LEVEL = process.env["LOG_LEVEL"] || (NODE_ENV === 'production' ? 'info' : 'debug');
+const LOG_DIR = process.env["LOG_DIR"] || './logs';
+const ENABLE_FILE_LOGGING = process.env["ENABLE_FILE_LOGGING"] !== 'false';
 
 // Create log directory if it doesn't exist
 import fs from 'fs';

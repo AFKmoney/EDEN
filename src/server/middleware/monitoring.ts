@@ -8,10 +8,10 @@ import { getMetrics, getMetricsSummary, metricsMiddleware, updateSystemMetrics }
 import { requestLogger, errorLogger } from '../utils/logger';
 
 // Configuration
-const ENABLE_MONITORING = process.env.ENABLE_MONITORING !== 'false';
-const HEALTH_CHECK_PATH = process.env.HEALTH_CHECK_PATH || '/api/health';
-const METRICS_PATH = process.env.METRICS_PATH || '/api/metrics';
-const METRICS_SUMMARY_PATH = process.env.METRICS_SUMMARY_PATH || '/api/metrics/summary';
+const ENABLE_MONITORING = process.env["ENABLE_MONITORING"] !== 'false';
+const HEALTH_CHECK_PATH = process.env["HEALTH_CHECK_PATH"] || '/api/health';
+const METRICS_PATH = process.env["METRICS_PATH"] || '/api/metrics';
+const METRICS_SUMMARY_PATH = process.env["METRICS_SUMMARY_PATH"] || '/api/metrics/summary';
 
 /**
  * Health check middleware
@@ -22,8 +22,8 @@ export function healthCheck(req: Request, res: Response, next: NextFunction) {
     res.json({
       status: 'ok',
       timestamp: Date.now(),
-      version: process.env.npm_package_version || '1.0.0',
-      environment: process.env.NODE_ENV || 'development',
+      version: process.env["npm_package_version"] || '1.0.0',
+      environment: process.env["NODE_ENV"] || 'development',
       uptime: process.uptime(),
       memory: process.memoryUsage(),
     });
@@ -43,8 +43,8 @@ export function detailedHealthCheck(req: Request, res: Response, next: NextFunct
     const health: any = {
       status: 'ok',
       timestamp: Date.now(),
-      version: process.env.npm_package_version || '1.0.0',
-      environment: process.env.NODE_ENV || 'development',
+      version: process.env["npm_package_version"] || '1.0.0',
+      environment: process.env["NODE_ENV"] || 'development',
       uptime: process.uptime(),
       memory: process.memoryUsage(),
       services: {

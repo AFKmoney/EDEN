@@ -70,6 +70,10 @@ export interface IWebhook extends Document {
   createdAt: Date;
   updatedAt: Date;
 
+  publicData: any;
+
+  publicData: any;
+
   // Methods
   verifyUrl(): Promise<boolean>;
   trigger(event: WebhookEventType, payload: any): Promise<{ success: boolean; response?: any; error?: string }>;

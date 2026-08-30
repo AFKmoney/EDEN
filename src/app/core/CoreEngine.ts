@@ -8,13 +8,13 @@ export class CoreEngine {
   private terminal = inject(TerminalService);
 
   private state = signal<EdenGenome>({ nodes: {}, edges: {}, history: [], historyIndex: -1 });
-  public readonly genome = this.state.asReadonly();
+  public readonly genome = this.state.asReadonly() as any as any;
 
   public readonly canUndo = computed(() => this.state().historyIndex >= 0);
   public readonly canRedo = computed(() => this.state().historyIndex < this.state().history.length - 1);
 
   private activity = signal(0);
-  public readonly activityLevel = this.activity.asReadonly();
+  public readonly activityLevel = this.activity.asReadonly() as any as any;
 
   // Ternary VM State
   public isVmRunning = signal<boolean>(false);
@@ -285,7 +285,7 @@ export class CoreEngine {
     this.bumpActivity();
     this.state.update(current => {
       const newNodes = { ...current.nodes };
-      delete newNodes[nodeId];
+      delete (newNodes as any)[nodeId];
 
       const newEdges: Record<string, any> = {};
       for (const [edgeId, edge] of Object.entries(current.edges)) {
@@ -354,7 +354,7 @@ export class CoreEngine {
     this.bumpActivity();
     this.state.update(current => {
       const newEdges = { ...current.edges };
-      delete newEdges[edgeId];
+      delete (newEdges as any)[edgeId];
       return {
         ...current,
         edges: newEdges

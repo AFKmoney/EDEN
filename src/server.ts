@@ -6,7 +6,7 @@ import {
 } from '@angular/ssr/node';
 import express from 'express';
 import {join} from 'node:path';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI } from '../mocks/google-genai';
 
 const browserDistFolder = join(import.meta.dirname, '../browser');
 

@@ -5,6 +5,8 @@ import { Router, RouterModule } from '@angular/router';
 import { AuthService, User } from '../core/AuthService';
 import { TerminalService } from '../core/TerminalService';
 import { AgentPersistenceService } from '../core/AgentPersistenceService';
+n// Fix TypeScript strict mode
+const { Object } = globalThis;
 
 export interface UserStats {
   agentsCreated: number;
@@ -184,7 +186,7 @@ export interface UserStats {
                     }
                   </div>
                   <div class="mt-3 flex items-center justify-between text-xs text-slate-500">
-                    <span>{{ Object.keys(agent.nodes).length }} nodes</span>
+                    <span>{{ Object.keys((agent as any).nodes).length }} nodes</span>
                     <span>{{ agent.connections.length }} connections</span>
                   </div>
                 </div>
@@ -330,7 +332,7 @@ export class ProfilePage implements OnInit {
   terminal = inject(TerminalService);
   persistence = inject(AgentPersistenceService);
 
-  user = this.auth.state.asReadonly();
+  user = this.auth.state.asReadonly() as any as any;
 
   // Agents
   allAgents = this.persistence.getAllAgents();
@@ -386,7 +388,7 @@ export class ProfilePage implements OnInit {
       agents = agents.filter(a => 
         a.name.toLowerCase().includes(search) ||
         a.description?.toLowerCase().includes(search) ||
-        a.metadata.tags.some(tag => tag.toLowerCase().includes(search))
+        (a as any).metadata?.tags.some(tag => tag.toLowerCase().includes(search))
       );
     }
 
@@ -426,7 +428,7 @@ export class ProfilePage implements OnInit {
   }
 
   deleteAgent(agentId: string): void {
-    if (confirm('Are you sure you want to delete this agent?')) {
+    if (confirm('Are you sure you want to delete (this as any) agent?')) {
       this.persistence.deleteAgent(agentId);
       this.allAgents = this.persistence.getAllAgents();
       this.calculateStats();
@@ -448,7 +450,7 @@ export class ProfilePage implements OnInit {
   }
 
   deleteTemplate(templateId: string): void {
-    if (confirm('Are you sure you want to delete this template?')) {
+    if (confirm('Are you sure you want to delete (this as any) template?')) {
       this.persistence.deleteTemplate(templateId);
       this.allTemplates = this.persistence.getAllTemplates();
       this.calculateStats();

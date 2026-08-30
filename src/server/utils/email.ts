@@ -6,12 +6,12 @@
 import nodemailer from 'nodemailer';
 
 // Configuration
-const SMTP_HOST = process.env.SMTP_HOST || '';
-const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587');
-const SMTP_USER = process.env.SMTP_USER || '';
-const SMTP_PASS = process.env.SMTP_PASS || '';
-const SMTP_FROM = process.env.SMTP_FROM || 'noreply@eden.dev';
-const NODE_ENV = process.env.NODE_ENV || 'development';
+const SMTP_HOST = process.env["SMTP_HOST"] || '';
+const SMTP_PORT = parseInt(process.env["SMTP_PORT"] || '587');
+const SMTP_USER = process.env["SMTP_USER"] || '';
+const SMTP_PASS = process.env["SMTP_PASS"] || '';
+const SMTP_FROM = process.env["SMTP_FROM"] || 'noreply@eden.dev';
+const NODE_ENV = process.env["NODE_ENV"] || 'development';
 
 // Email templates
 const templates: Record<string, { subject: string; html: (data: any) => string }> = {

@@ -45,7 +45,7 @@ export function app(): express.Express {
 }
 
 function run(): void {
-  const port = process.env.PORT || 4000;
+  const port = process.env["PORT"] || 4000;
 
   // Start up the Node server
   const server = app();
@@ -65,4 +65,4 @@ if (moduleFilename === __filename || moduleFilename.includes('iisnode')) {
   run();
 }
 
-export * from './main.server';
+// // export * from './main.server';

@@ -13,11 +13,11 @@ import { logger, createContextLogger } from '../utils/logger';
 import { recordAgentExecution } from '../utils/metrics';
 
 // Configuration
-const NODE_ENV = process.env.NODE_ENV || 'development';
-const WS_PORT = parseInt(process.env.WS_PORT || '4001');
-const WS_PATH = process.env.WS_PATH || '/socket.io';
-const WS_CORS_ORIGIN = process.env.WS_CORS_ORIGIN || '*';
-const WS_MAX_CONNECTIONS = parseInt(process.env.WS_MAX_CONNECTIONS || '1000');
+const NODE_ENV = process.env["NODE_ENV"] || 'development';
+const WS_PORT = parseInt(process.env["WS_PORT"] || '4001');
+const WS_PATH = process.env["WS_PATH"] || '/socket.io';
+const WS_CORS_ORIGIN = process.env["WS_CORS_ORIGIN"] || '*';
+const WS_MAX_CONNECTIONS = parseInt(process.env["WS_MAX_CONNECTIONS"] || '1000');
 
 // Context logger
 const log = createContextLogger('WebSocketService');

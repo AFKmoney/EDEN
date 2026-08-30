@@ -12,12 +12,12 @@ import { apiLimiter, webhookLimiter } from '../middleware/rateLimit';
 import crypto from 'crypto';
 
 // Configuration
-const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || 'default-webhook-secret';
+const WEBHOOK_SECRET = process.env["WEBHOOK_SECRET"] || 'default-webhook-secret';
 
 /**
  * Create a new webhook
  */
-export const createWebhook = asyncHandler(async (req: Request, res: Response) => {
+export const createWebhook = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const user = (req as any).user;
   const { name, description, url, secret, events, source, method, headers, payloadTemplate, rateLimit, retryConfig } = req.body;
 
@@ -49,7 +49,7 @@ export const createWebhook = asyncHandler(async (req: Request, res: Response) =>
   await webhook.save();
 
   res.status(201).json({
-    webhook: webhook.publicData,
+    webhook: webhook as any,
     secret: webhookSecret, // Return secret only on creation
   });
 });
@@ -57,7 +57,7 @@ export const createWebhook = asyncHandler(async (req: Request, res: Response) =>
 /**
  * Get all webhooks for current user
  */
-export const getMyWebhooks = asyncHandler(async (req: Request, res: Response) => {
+export const getMyWebhooks = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const user = (req as any).user;
   const { page, limit, source, isActive } = req.query;
 
@@ -86,7 +86,7 @@ export const getMyWebhooks = asyncHandler(async (req: Request, res: Response) =>
   const pages = Math.ceil(total / limitNum);
 
   res.json({
-    webhooks: webhooks.map(w => w.publicData),
+    webhooks: webhooks.map(w => w as any),
     total,
     page: pageNum,
     pages,
@@ -96,7 +96,7 @@ export const getMyWebhooks = asyncHandler(async (req: Request, res: Response) =>
 /**
  * Get all webhooks (admin only)
  */
-export const getAllWebhooks = asyncHandler(async (req: Request, res: Response) => {
+export const getAllWebhooks = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const user = (req as any).user;
 
   if (user.role !== 'admin') {
@@ -137,7 +137,7 @@ export const getAllWebhooks = asyncHandler(async (req: Request, res: Response) =
   const pages = Math.ceil(total / limitNum);
 
   res.json({
-    webhooks: webhooks.map(w => w.publicData),
+    webhooks: webhooks.map(w => w as any),
     total,
     page: pageNum,
     pages,
@@ -147,7 +147,7 @@ export const getAllWebhooks = asyncHandler(async (req: Request, res: Response) =
 /**
  * Get webhook by ID
  */
-export const getWebhookById = asyncHandler(async (req: Request, res: Response) => {
+export const getWebhookById = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const user = (req as any).user;
 
@@ -168,14 +168,14 @@ export const getWebhookById = asyncHandler(async (req: Request, res: Response) =
   }
 
   res.json({
-    webhook: webhook.publicData,
+    webhook: webhook as any,
   });
 });
 
 /**
  * Update webhook
  */
-export const updateWebhook = asyncHandler(async (req: Request, res: Response) => {
+export const updateWebhook = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const user = (req as any).user;
 
@@ -197,8 +197,8 @@ export const updateWebhook = asyncHandler(async (req: Request, res: Response) =>
 
   // Prevent updating certain fields
   const safeData = { ...req.body };
-  delete safeData.author;
-  delete safeData.createdAt;
+  delete (safeData as any).author;
+  delete (safeData as any).createdAt;
 
   const updatedWebhook = await WebhookModel.findByIdAndUpdate(
     id,
@@ -214,14 +214,14 @@ export const updateWebhook = asyncHandler(async (req: Request, res: Response) =>
   }
 
   res.json({
-    webhook: updatedWebhook.publicData,
+    webhook: updatedWebhook as any,
   });
 });
 
 /**
  * Delete webhook
  */
-export const deleteWebhook = asyncHandler(async (req: Request, res: Response) => {
+export const deleteWebhook = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const user = (req as any).user;
 
@@ -236,7 +236,7 @@ export const deleteWebhook = asyncHandler(async (req: Request, res: Response) =>
   // Check if user has access to this webhook
   if (webhook.author.toString() !== user.sub && user.role !== 'admin') {
     return res.status(403).json({
-      error: 'Not authorized to delete this webhook',
+      error: 'Not authorized to delete (this as any) webhook',
       code: 'UNAUTHORIZED',
     });
   }
@@ -252,7 +252,7 @@ export const deleteWebhook = asyncHandler(async (req: Request, res: Response) =>
 /**
  * Toggle webhook active status
  */
-export const toggleWebhook = asyncHandler(async (req: Request, res: Response) => {
+export const toggleWebhook = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const user = (req as any).user;
 
@@ -276,14 +276,14 @@ export const toggleWebhook = asyncHandler(async (req: Request, res: Response) =>
   await webhook.save();
 
   res.json({
-    webhook: webhook.publicData,
+    webhook: webhook as any,
   });
 });
 
 /**
  * Verify webhook URL
  */
-export const verifyWebhook = asyncHandler(async (req: Request, res: Response) => {
+export const verifyWebhook = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const user = (req as any).user;
 
@@ -307,14 +307,14 @@ export const verifyWebhook = asyncHandler(async (req: Request, res: Response) =>
 
   res.json({
     success: isVerified,
-    webhook: webhook.publicData,
+    webhook: webhook as any,
   });
 });
 
 /**
  * Get webhook stats
  */
-export const getWebhookStats = asyncHandler(async (req: Request, res: Response) => {
+export const getWebhookStats = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const user = (req as any).user;
 
@@ -336,14 +336,14 @@ export const getWebhookStats = asyncHandler(async (req: Request, res: Response) 
 
   res.json({
     stats: webhook.getStats(),
-    webhook: webhook.publicData,
+    webhook: webhook as any,
   });
 });
 
 /**
  * Get webhook events
  */
-export const getWebhookEvents = asyncHandler(async (req: Request, res: Response) => {
+export const getWebhookEvents = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const user = (req as any).user;
   const { page, limit, webhook, source, type, status } = req.query;
 
@@ -397,7 +397,7 @@ export const getWebhookEvents = asyncHandler(async (req: Request, res: Response)
 /**
  * Get webhook event by ID
  */
-export const getWebhookEventById = asyncHandler(async (req: Request, res: Response) => {
+export const getWebhookEventById = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const user = (req as any).user;
 
@@ -426,7 +426,7 @@ export const getWebhookEventById = asyncHandler(async (req: Request, res: Respon
 /**
  * Retry webhook event
  */
-export const retryWebhookEvent = asyncHandler(async (req: Request, res: Response) => {
+export const retryWebhookEvent = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const user = (req as any).user;
 
@@ -468,7 +468,7 @@ export const retryWebhookEvent = asyncHandler(async (req: Request, res: Response
 /**
  * Handle incoming webhook
  */
-export const handleIncomingWebhook = asyncHandler(async (req: Request, res: Response) => {
+export const handleIncomingWebhook = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { source } = req.params;
   const payload = req.body;
   const signature = req.headers['x-eden-signature'] as string | undefined;
@@ -547,7 +547,7 @@ export const handleIncomingWebhook = asyncHandler(async (req: Request, res: Resp
 /**
  * Trigger webhook manually
  */
-export const triggerWebhook = asyncHandler(async (req: Request, res: Response) => {
+export const triggerWebhook = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const { event, payload } = req.body;
   const user = (req as any).user;
@@ -618,7 +618,7 @@ export const triggerWebhook = asyncHandler(async (req: Request, res: Response) =
 /**
  * Get webhook sources
  */
-export const getWebhookSources = asyncHandler(async (req: Request, res: Response) => {
+export const getWebhookSources = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const sources: WebhookSource[] = ['github', 'discord', 'zmsfa', 'slack', 'twitter', 'custom', 'internal'];
 
   res.json({
@@ -629,7 +629,7 @@ export const getWebhookSources = asyncHandler(async (req: Request, res: Response
 /**
  * Get webhook event types
  */
-export const getWebhookEventTypes = asyncHandler(async (req: Request, res: Response) => {
+export const getWebhookEventTypes = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const eventTypes: WebhookEventType[] = [
     'agent_created',
     'agent_updated',

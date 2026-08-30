@@ -7,9 +7,9 @@ import mongoose from 'mongoose';
 import { createClient, RedisClientType } from 'redis';
 
 // Configuration
-const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://localhost:27017/eden';
-const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
-const NODE_ENV = process.env.NODE_ENV || 'development';
+const MONGO_URI = process.env["MONGO_URI"] || process.env["MONGODB_URI"] || 'mongodb://localhost:27017/eden';
+const REDIS_URL = process.env["REDIS_URL"] || 'redis://localhost:6379';
+const NODE_ENV = process.env["NODE_ENV"] || 'development';
 
 // MongoDB connection
 let mongoConnection: typeof mongoose | null = null;
@@ -26,8 +26,6 @@ export async function connectMongoDB(): Promise<typeof mongoose> {
 
   try {
     mongoConnection = await mongoose.connect(MONGO_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
       connectTimeoutMS: 10000,
       socketTimeoutMS: 30000,
       serverSelectionTimeoutMS: 10000,
@@ -162,7 +160,7 @@ export async function initializeDatabase(): Promise<void> {
     await connectMongoDB();
 
     // Connect to Redis (cache/sessions)
-    if (NODE_ENV !== 'test' || process.env.REDIS_URL) {
+    if (NODE_ENV !== 'test' || process.env["REDIS_URL"]) {
       await connectRedis();
     }
 

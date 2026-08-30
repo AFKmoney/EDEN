@@ -8,8 +8,8 @@ import jwt from 'jsonwebtoken';
 import { getRedisClient } from '../config/database';
 
 // Configuration
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-const NODE_ENV = process.env.NODE_ENV || 'development';
+const JWT_SECRET = process.env["JWT_SECRET"] || 'your-secret-key';
+const NODE_ENV = process.env["NODE_ENV"] || 'development';
 
 // Token blacklist for logout
 const TOKEN_BLACKLIST_PREFIX = 'blacklist:token:';

@@ -11,8 +11,8 @@ import { NotFoundError, ValidationError, AuthorizationError, ConflictError } fro
 
 // Configuration
 const TEMPLATE_CACHE_PREFIX = 'template:';
-const TEMPLATE_CACHE_TTL = parseInt(process.env.TEMPLATE_CACHE_TTL || '300'); // 5 minutes
-const FEATURED_TEMPLATE_LIMIT = parseInt(process.env.FEATURED_TEMPLATE_LIMIT || '20');
+const TEMPLATE_CACHE_TTL = parseInt(process.env["TEMPLATE_CACHE_TTL"] || '300'); // 5 minutes
+const FEATURED_TEMPLATE_LIMIT = parseInt(process.env["FEATURED_TEMPLATE_LIMIT"] || '20');
 
 /**
  * Template service interface
@@ -253,16 +253,16 @@ export class TemplateService implements ITemplateService {
 
       // Prevent updating certain fields
       const safeData = { ...data };
-      delete safeData.author;
-      delete safeData.authorName;
-      delete safeData.createdAt;
+      delete (safeData as any).author;
+      delete (safeData as any).authorName;
+      delete (safeData as any).createdAt;
 
       // If not admin, prevent changing approval status
       if (!isAdmin) {
-        delete safeData.isApproved;
-        delete safeData.approvedBy;
-        delete safeData.approvedAt;
-        delete safeData.rejectionReason;
+        delete (safeData as any).isApproved;
+        delete (safeData as any).approvedBy;
+        delete (safeData as any).approvedAt;
+        delete (safeData as any).rejectionReason;
       }
 
       // Update template
@@ -301,7 +301,7 @@ export class TemplateService implements ITemplateService {
       }
 
       if (template.author.toString() !== author && !isAdmin) {
-        throw new AuthorizationError('Not authorized to delete this template');
+        throw new AuthorizationError('Not authorized to delete (this as any) template');
       }
 
       // Soft delete
@@ -337,14 +337,14 @@ export class TemplateService implements ITemplateService {
 
       // Create a copy
       const clonedData = template.toObject();
-      delete clonedData._id;
-      delete clonedData.createdAt;
-      delete clonedData.updatedAt;
-      delete clonedData.stats;
-      delete clonedData.isApproved;
-      delete clonedData.approvedBy;
-      delete clonedData.approvedAt;
-      delete clonedData.rejectionReason;
+      delete (clonedData as any)._id;
+      delete (clonedData as any).createdAt;
+      delete (clonedData as any).updatedAt;
+      delete (clonedData as any).stats;
+      delete (clonedData as any).isApproved;
+      delete (clonedData as any).approvedBy;
+      delete (clonedData as any).approvedAt;
+      delete (clonedData as any).rejectionReason;
 
       // Update clone-specific fields
       clonedData.name = `${clonedData.name} (Copy)`;

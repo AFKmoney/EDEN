@@ -11,9 +11,9 @@ import { NotFoundError, ValidationError, AuthorizationError } from '../middlewar
 
 // Configuration
 const AGENT_CACHE_PREFIX = 'agent:';
-const AGENT_CACHE_TTL = parseInt(process.env.AGENT_CACHE_TTL || '300'); // 5 minutes
-const MAX_EXECUTION_ITERATIONS = parseInt(process.env.MAX_EXECUTION_ITERATIONS || '50');
-const EXECUTION_TIMEOUT_MS = parseInt(process.env.EXECUTION_TIMEOUT_MS || '60000');
+const AGENT_CACHE_TTL = parseInt(process.env["AGENT_CACHE_TTL"] || '300'); // 5 minutes
+const MAX_EXECUTION_ITERATIONS = parseInt(process.env["MAX_EXECUTION_ITERATIONS"] || '50');
+const EXECUTION_TIMEOUT_MS = parseInt(process.env["EXECUTION_TIMEOUT_MS"] || '60000');
 
 // Extended types for execution
 export interface ExecutionContext {
@@ -277,7 +277,7 @@ export class AgentService implements IAgentService {
       }
 
       if (agent.author.toString() !== author && !isAdmin) {
-        throw new AuthorizationError('Not authorized to delete this agent');
+        throw new AuthorizationError('Not authorized to delete (this as any) agent');
       }
 
       // Soft delete (archive)

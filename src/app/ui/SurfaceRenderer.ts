@@ -2,6 +2,8 @@ import { Component, inject, computed, signal, HostListener } from '@angular/core
 import { DecimalPipe } from '@angular/common';
 import { CoreEngine } from '../core/CoreEngine';
 import { NodeRenderer } from './NodeRenderer';
+n// Fix TypeScript strict mode
+const { Object } = globalThis;
 
 @Component({
   selector: 'eden-surface',
@@ -41,25 +43,25 @@ import { NodeRenderer } from './NodeRenderer';
           </defs>
 
           <!-- Established Edges -->
-          @for (edge of edgeList(); track edge.id) {
-            @if (getNode(edge.sourceId) && getNode(edge.targetId)) {
+          @for (edge of edgeList() as any as any; track (edge as any).id) {
+            @if (getNode((edge as any).sourceId) && getNode((edge as any).targetId)) {
               <g class="eden-edge pointer-events-auto cursor-pointer group" 
-                 [attr.data-edge-id]="edge.id"
-                 [attr.data-source-id]="edge.sourceId" 
-                 [attr.data-target-id]="edge.targetId"
-                 (click)="deleteEdge(edge.id)">
+                 [attr.data-edge-id]="(edge as any).id"
+                 [attr.data-source-id]="(edge as any).sourceId" 
+                 [attr.data-target-id]="(edge as any).targetId"
+                 (click)="deleteEdge((edge as any).id)">
                 <!-- Invisible wider path for easier clicking -->
                 <path 
-                  [attr.d]="generateEdgePath(getPortX(edge.sourceId, 'output'), getNode(edge.sourceId).position.y, getPortX(edge.targetId, 'input'), getNode(edge.targetId).position.y)"
+                  [attr.d]="generateEdgePath(getPortX((edge as any).sourceId, 'output'), getNode((edge as any).sourceId).position.y, getPortX((edge as any).targetId, 'input'), getNode((edge as any).targetId).position.y)"
                   fill="none"
                   stroke="transparent" 
                   stroke-width="20"
                 />
                 <!-- Visible Path with Energy Flow Animation -->
                 <path 
-                  [attr.d]="generateEdgePath(getPortX(edge.sourceId, 'output'), getNode(edge.sourceId).position.y, getPortX(edge.targetId, 'input'), getNode(edge.targetId).position.y)"
+                  [attr.d]="generateEdgePath(getPortX((edge as any).sourceId, 'output'), getNode((edge as any).sourceId).position.y, getPortX((edge as any).targetId, 'input'), getNode((edge as any).targetId).position.y)"
                   fill="none"
-                  [attr.stroke]="getEdgeColor(edge.sourceId)" 
+                  [attr.stroke]="getEdgeColor((edge as any).sourceId)" 
                   stroke-width="2"
                   stroke-opacity="0.6"
                   stroke-dasharray="8 8"
@@ -67,11 +69,11 @@ import { NodeRenderer } from './NodeRenderer';
                   style="animation: eden-flow 1s linear infinite;"
                 />
                 <!-- Edge animated flow indicator with glow -->
-                <circle r="4" [attr.fill]="getEdgeColor(edge.sourceId)" filter="url(#neon-glow)" class="group-hover:hidden">
+                <circle r="4" [attr.fill]="getEdgeColor((edge as any).sourceId)" filter="url(#neon-glow)" class="group-hover:hidden">
                   <animateMotion 
                     dur="1.5s" 
                     repeatCount="indefinite"
-                    [attr.path]="generateEdgePath(getPortX(edge.sourceId, 'output'), getNode(edge.sourceId).position.y, getPortX(edge.targetId, 'input'), getNode(edge.targetId).position.y)"
+                    [attr.path]="generateEdgePath(getPortX((edge as any).sourceId, 'output'), getNode((edge as any).sourceId).position.y, getPortX((edge as any).targetId, 'input'), getNode((edge as any).targetId).position.y)"
                   />
                 </circle>
               </g>

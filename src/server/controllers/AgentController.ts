@@ -12,7 +12,7 @@ import { apiLimiter } from '../middleware/rateLimit';
 /**
  * Create a new agent
  */
-export const createAgent = asyncHandler(async (req: Request, res: Response) => {
+export const createAgent = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const user = (req as any).user;
   const { name, description, nodes, connections, metadata, settings } = req.body;
 
@@ -46,14 +46,14 @@ export const createAgent = asyncHandler(async (req: Request, res: Response) => {
   });
 
   res.status(201).json({
-    agent: agent.publicData,
+    agent: agent as any,
   });
 });
 
 /**
  * Get agent by ID
  */
-export const getAgentById = asyncHandler(async (req: Request, res: Response) => {
+export const getAgentById = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const user = (req as any).user;
 
@@ -68,14 +68,14 @@ export const getAgentById = asyncHandler(async (req: Request, res: Response) => 
   }
 
   res.json({
-    agent: agent.publicData,
+    agent: agent as any,
   });
 });
 
 /**
  * Get all agents for current user
  */
-export const getMyAgents = asyncHandler(async (req: Request, res: Response) => {
+export const getMyAgents = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const user = (req as any).user;
   const { page, limit, search, tags, category } = req.query;
 
@@ -88,7 +88,7 @@ export const getMyAgents = asyncHandler(async (req: Request, res: Response) => {
   });
 
   res.json({
-    agents: result.agents.map(a => a.publicData),
+    agents: result.agents.map(a => a as any),
     total: result.total,
     page: result.page,
     pages: result.pages,
@@ -98,7 +98,7 @@ export const getMyAgents = asyncHandler(async (req: Request, res: Response) => {
 /**
  * Get all public agents
  */
-export const getPublicAgents = asyncHandler(async (req: Request, res: Response) => {
+export const getPublicAgents = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { page, limit, search, tags, category, sort } = req.query;
 
   const result = await agentService.getPublicAgents({
@@ -111,7 +111,7 @@ export const getPublicAgents = asyncHandler(async (req: Request, res: Response) 
   });
 
   res.json({
-    agents: result.agents.map(a => a.publicData),
+    agents: result.agents.map(a => a as any),
     total: result.total,
     page: result.page,
     pages: result.pages,
@@ -121,21 +121,21 @@ export const getPublicAgents = asyncHandler(async (req: Request, res: Response) 
 /**
  * Update agent
  */
-export const updateAgent = asyncHandler(async (req: Request, res: Response) => {
+export const updateAgent = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const user = (req as any).user;
 
   const agent = await agentService.updateAgent(id, user.sub, req.body);
 
   res.json({
-    agent: agent.publicData,
+    agent: agent as any,
   });
 });
 
 /**
  * Delete agent
  */
-export const deleteAgent = asyncHandler(async (req: Request, res: Response) => {
+export const deleteAgent = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const user = (req as any).user;
 
@@ -150,21 +150,21 @@ export const deleteAgent = asyncHandler(async (req: Request, res: Response) => {
 /**
  * Clone agent
  */
-export const cloneAgent = asyncHandler(async (req: Request, res: Response) => {
+export const cloneAgent = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const user = (req as any).user;
 
   const agent = await agentService.cloneAgent(id, user.sub);
 
   res.status(201).json({
-    agent: agent.publicData,
+    agent: agent as any,
   });
 });
 
 /**
  * Toggle agent visibility
  */
-export const toggleAgentVisibility = asyncHandler(async (req: Request, res: Response) => {
+export const toggleAgentVisibility = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const { isPublic } = req.body;
   const user = (req as any).user;
@@ -179,50 +179,50 @@ export const toggleAgentVisibility = asyncHandler(async (req: Request, res: Resp
   const agent = await agentService.toggleAgentVisibility(id, user.sub, isPublic);
 
   res.json({
-    agent: agent.publicData,
+    agent: agent as any,
   });
 });
 
 /**
  * Get featured agents
  */
-export const getFeaturedAgents = asyncHandler(async (req: Request, res: Response) => {
+export const getFeaturedAgents = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { limit } = req.query;
   const agents = await agentService.getFeaturedAgents(parseInt(limit as string) || 10);
 
   res.json({
-    agents: agents.map(a => a.publicData),
+    agents: agents.map(a => a as any),
   });
 });
 
 /**
  * Get recent agents
  */
-export const getRecentAgents = asyncHandler(async (req: Request, res: Response) => {
+export const getRecentAgents = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { limit } = req.query;
   const agents = await agentService.getRecentAgents(parseInt(limit as string) || 10);
 
   res.json({
-    agents: agents.map(a => a.publicData),
+    agents: agents.map(a => a as any),
   });
 });
 
 /**
  * Get popular agents
  */
-export const getPopularAgents = asyncHandler(async (req: Request, res: Response) => {
+export const getPopularAgents = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { limit } = req.query;
   const agents = await agentService.getPopularAgents(parseInt(limit as string) || 10);
 
   res.json({
-    agents: agents.map(a => a.publicData),
+    agents: agents.map(a => a as any),
   });
 });
 
 /**
  * Get agent stats
  */
-export const getAgentStats = asyncHandler(async (req: Request, res: Response) => {
+export const getAgentStats = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const user = (req as any).user;
 
@@ -246,7 +246,7 @@ export const getAgentStats = asyncHandler(async (req: Request, res: Response) =>
 /**
  * Execute agent
  */
-export const executeAgent = asyncHandler(async (req: Request, res: Response) => {
+export const executeAgent = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const user = (req as any).user;
   const { input } = req.body;
@@ -280,7 +280,7 @@ export const executeAgent = asyncHandler(async (req: Request, res: Response) => 
 /**
  * Get agent categories
  */
-export const getAgentCategories = asyncHandler(async (req: Request, res: Response) => {
+export const getAgentCategories = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const categories = [
     'automation',
     'data-processing',
@@ -301,7 +301,7 @@ export const getAgentCategories = asyncHandler(async (req: Request, res: Respons
 /**
  * Get agent difficulties
  */
-export const getAgentDifficulties = asyncHandler(async (req: Request, res: Response) => {
+export const getAgentDifficulties = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const difficulties = [
     { value: 'beginner', label: 'Beginner' },
     { value: 'intermediate', label: 'Intermediate' },
