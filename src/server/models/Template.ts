@@ -5,6 +5,9 @@
 
 import mongoose, { Document, Schema, Model, Types } from 'mongoose';
 
+// Ensure NODE_ENV is defined
+const NODE_ENV = process.env.NODE_ENV || 'development';
+
 // Category type
 export type TemplateCategory = 
   | 'automation'

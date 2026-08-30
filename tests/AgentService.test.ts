@@ -1,6 +1,6 @@
 /**
  * Agent Service Tests
- * Unit tests for AgentService
+ * Unit tests for AgentService with Ternary VM and Chain of Thought
  */
 
 import { agentService } from '../src/server/services/AgentService';
@@ -8,6 +8,9 @@ import AgentModel from '../src/server/models/Agent';
 import UserModel from '../src/server/models/User';
 import { connectMongoDB, disconnectMongoDB } from '../src/server/config/database';
 import { NotFoundError, ValidationError, AuthorizationError } from '../src/server/middleware/errorHandler';
+
+// Set NODE_ENV for tests
+process.env.NODE_ENV = 'test';
 
 // Setup MongoDB for testing
 beforeAll(async () => {
@@ -530,13 +533,13 @@ describe('AgentService', () => {
   });
 
   describe('executeAgent', () => {
-    it('should execute an agent (mock)', async () => {
+    it('should execute an agent with Ternary VM', async () => {
       const nodes = {
         node1: {
           id: 'node1',
           type: 'Data' as const,
           position: { x: 100, y: 100 },
-          metadata: { title: 'Test Node' },
+          metadata: { title: 'Test Node', content: 'Test content' },
           ternaryState: 'UNKNOWN' as const,
           inputs: [],
           outputs: [],
@@ -554,16 +557,236 @@ describe('AgentService', () => {
 
       expect(result).toBeDefined();
       expect(result.success).toBe(true);
-      expect(result.result).toBeDefined();
+      expect(result.nodeResults).toBeDefined();
+      expect(result.stats).toBeDefined();
       expect(result.executionTime).toBeGreaterThanOrEqual(0);
+      expect(result.stats.totalNodes).toBe(1);
+    });
+
+    it('should execute agent with logic gates', async () => {
+      const nodes: Record<string, any> = {
+        node1: {
+          id: 'node1',
+          type: 'Data' as const,
+          position: { x: 100, y: 100 },
+          metadata: { title: 'Input 1' },
+          ternaryState: 'TRUE' as const,
+          inputs: [],
+          outputs: [],
+        },
+        node2: {
+          id: 'node2',
+          type: 'Data' as const,
+          position: { x: 100, y: 200 },
+          metadata: { title: 'Input 2' },
+          ternaryState: 'TRUE' as const,
+          inputs: [],
+          outputs: [],
+        },
+        node3: {
+          id: 'node3',
+          type: 'Logic' as const,
+          position: { x: 300, y: 150 },
+          metadata: { title: 'AND Gate', gateType: 'AND' },
+          ternaryState: 'UNKNOWN' as const,
+          inputs: [],
+          outputs: [],
+        },
+      };
+
+      const connections = [
+        { id: 'edge1', sourceId: 'node1', sourcePort: 'output', targetId: 'node3', targetPort: 'input' },
+        { id: 'edge2', sourceId: 'node2', sourcePort: 'output', targetId: 'node3', targetPort: 'input' },
+      ];
+
+      const createdAgent = await agentService.createAgent({
+        name: 'Logic Test Agent',
+        nodes,
+        connections,
+        author: userId,
+      });
+
+      const result = await agentService.executeAgent(createdAgent._id.toString(), {});
+
+      expect(result).toBeDefined();
+      expect(result.success).toBe(true);
+      expect(result.nodeResults.node3).toBeDefined();
+      // AND gate with two TRUE inputs should result in TRUE
+      expect(result.nodeResults.node3.state).toBe('TRUE');
+    });
+
+    it('should execute agent with OR gate', async () => {
+      const nodes: Record<string, any> = {
+        node1: {
+          id: 'node1',
+          type: 'Data' as const,
+          position: { x: 100, y: 100 },
+          metadata: { title: 'Input 1' },
+          ternaryState: 'FALSE' as const,
+          inputs: [],
+          outputs: [],
+        },
+        node2: {
+          id: 'node2',
+          type: 'Data' as const,
+          position: { x: 100, y: 200 },
+          metadata: { title: 'Input 2' },
+          ternaryState: 'TRUE' as const,
+          inputs: [],
+          outputs: [],
+        },
+        node3: {
+          id: 'node3',
+          type: 'Logic' as const,
+          position: { x: 300, y: 150 },
+          metadata: { title: 'OR Gate', gateType: 'OR' },
+          ternaryState: 'UNKNOWN' as const,
+          inputs: [],
+          outputs: [],
+        },
+      };
+
+      const connections = [
+        { id: 'edge1', sourceId: 'node1', sourcePort: 'output', targetId: 'node3', targetPort: 'input' },
+        { id: 'edge2', sourceId: 'node2', sourcePort: 'output', targetId: 'node3', targetPort: 'input' },
+      ];
+
+      const createdAgent = await agentService.createAgent({
+        name: 'OR Test Agent',
+        nodes,
+        connections,
+        author: userId,
+      });
+
+      const result = await agentService.executeAgent(createdAgent._id.toString(), {});
+
+      expect(result).toBeDefined();
+      expect(result.success).toBe(true);
+      // OR gate with FALSE and TRUE inputs should result in TRUE
+      expect(result.nodeResults.node3.state).toBe('TRUE');
+    });
+
+    it('should execute agent with NOT gate', async () => {
+      const nodes: Record<string, any> = {
+        node1: {
+          id: 'node1',
+          type: 'Data' as const,
+          position: { x: 100, y: 100 },
+          metadata: { title: 'Input' },
+          ternaryState: 'FALSE' as const,
+          inputs: [],
+          outputs: [],
+        },
+        node2: {
+          id: 'node2',
+          type: 'Logic' as const,
+          position: { x: 300, y: 150 },
+          metadata: { title: 'NOT Gate', gateType: 'NOT' },
+          ternaryState: 'UNKNOWN' as const,
+          inputs: [],
+          outputs: [],
+        },
+      };
+
+      const connections = [
+        { id: 'edge1', sourceId: 'node1', sourcePort: 'output', targetId: 'node2', targetPort: 'input' },
+      ];
+
+      const createdAgent = await agentService.createAgent({
+        name: 'NOT Test Agent',
+        nodes,
+        connections,
+        author: userId,
+      });
+
+      const result = await agentService.executeAgent(createdAgent._id.toString(), {});
+
+      expect(result).toBeDefined();
+      expect(result.success).toBe(true);
+      // NOT gate with FALSE input should result in TRUE
+      expect(result.nodeResults.node2.state).toBe('TRUE');
+    });
+
+    it('should handle agent with unknown state', async () => {
+      const nodes: Record<string, any> = {
+        node1: {
+          id: 'node1',
+          type: 'Data' as const,
+          position: { x: 100, y: 100 },
+          metadata: { title: 'Unknown Node' },
+          ternaryState: 'UNKNOWN' as const,
+          inputs: [],
+          outputs: [],
+        },
+        node2: {
+          id: 'node2',
+          type: 'Logic' as const,
+          position: { x: 300, y: 150 },
+          metadata: { title: 'AND Gate', gateType: 'AND' },
+          ternaryState: 'UNKNOWN' as const,
+          inputs: [],
+          outputs: [],
+        },
+      };
+
+      const connections = [
+        { id: 'edge1', sourceId: 'node1', sourcePort: 'output', targetId: 'node2', targetPort: 'input' },
+      ];
+
+      const createdAgent = await agentService.createAgent({
+        name: 'Unknown Test Agent',
+        nodes,
+        connections,
+        author: userId,
+      });
+
+      const result = await agentService.executeAgent(createdAgent._id.toString(), {});
+
+      expect(result).toBeDefined();
+      expect(result.success).toBe(true);
+      // AND gate with UNKNOWN input should result in UNKNOWN
+      expect(result.nodeResults.node2.state).toBe('UNKNOWN');
     });
 
     it('should throw NotFoundError if agent does not exist', async () => {
       const nonExistentId = '507f1f77bcf86cd799439011';
 
-      await expect(agentService.executeAgent(nonExistentId, {}))
-        .rejects
-        .toThrow(NotFoundError);
+      const result = await agentService.executeAgent(nonExistentId, {});
+      
+      expect(result).toBeDefined();
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Agent not found');
+    });
+
+    it('should execute agentic loop', async () => {
+      const nodes = {
+        node1: {
+          id: 'node1',
+          type: 'Data' as const,
+          position: { x: 100, y: 100 },
+          metadata: { title: 'Test Node' },
+          ternaryState: 'UNKNOWN' as const,
+          inputs: [],
+          outputs: [],
+        },
+      };
+
+      const createdAgent = await agentService.createAgent({
+        name: 'Agentic Test Agent',
+        nodes,
+        connections: [],
+        author: userId,
+      });
+
+      const result = await agentService.executeAgenticLoop(
+        createdAgent._id.toString(),
+        'Create a simple graph with 2 nodes',
+        3
+      );
+
+      expect(result).toBeDefined();
+      expect(result.iterations).toBeGreaterThan(0);
+      expect(result.chainOfThought).toBeInstanceOf(Array);
     });
   });
 });

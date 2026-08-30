@@ -5,14 +5,18 @@
 
 import { connectMongoDB } from '../src/server/config/database';
 
-// Connect to MongoDB before tests
+// Set NODE_ENV to test
+process.env.NODE_ENV = 'test';
+
+// Connect to MongoDB before tests with longer timeout
 beforeAll(async () => {
   try {
+    // Use shorter timeout for test connection
     await connectMongoDB();
   } catch (error) {
     console.warn('Could not connect to MongoDB for tests');
   }
-});
+}, 15000); // 15 second timeout for MongoDB connection
 
 // Mock console methods to reduce noise during tests
 const originalConsole = {

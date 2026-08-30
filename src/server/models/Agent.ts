@@ -5,8 +5,11 @@
 
 import mongoose, { Document, Schema, Model, Types } from 'mongoose';
 
-// Ternary state type
-export type TernaryState = 'TRUE' | 'FALSE' | 'UNKNOWN' | 'ERROR';
+// Ternary state type - Extended for more granular states
+export type TernaryState = 'TRUE' | 'FALSE' | 'UNKNOWN' | 'ERROR' | 'PROPAGATING' | 'EVALUATING' | 'BLOCKED';
+
+// Execution state for nodes
+export type ExecutionState = 'pending' | 'executing' | 'completed' | 'failed' | 'skipped';
 
 // Node type type
 export type NodeType = 'Data' | 'Logic' | 'UI' | 'IO' | 'Custom';
@@ -35,12 +38,17 @@ export interface INode {
   position: Position;
   metadata: AgentMetadata;
   ternaryState: TernaryState;
+  executionState?: ExecutionState;
   inputs: string[];
   outputs: string[];
   executionOrder?: number;
   lastExecution?: Date;
   executionTime?: number;
   error?: string;
+  dependencies?: string[]; // Node dependencies for execution order
+  executionCount?: number; // How many times this node has been executed
+  successCount?: number; // How many times execution succeeded
+  failureCount?: number; // How many times execution failed
 }
 
 // Connection interface
@@ -86,17 +94,64 @@ export interface IAgent extends Document {
   isArchived: boolean;
   createdAt: Date;
   updatedAt: Date;
+  
+  // Chain of Thought history
+  chainOfThought?: {
+    steps: Array<{
+      step: number;
+      thought: string;
+      action: string;
+      result: any;
+      timestamp: number;
+      nodeId?: string;
+    }>;
+    lastExecutionId?: string;
+    totalExecutions: number;
+  };
 
   // Methods
   getNodeCount(): number;
   getConnectionCount(): number;
   getExecutionStats(): { avgTime: number; successRate: number };
   clone(): Promise<IAgent>;
+  addChainOfThoughtStep(step: {
+    step: number;
+    thought: string;
+    action: string;
+    result: any;
+    timestamp: number;
+    nodeId?: string;
+  }): void;
 }
 
 // Agent schema
 const AgentSchema = new Schema<IAgent>(
   {
+    chainOfThought: {
+      type: {
+        steps: {
+          type: [{
+            step: { type: Number, required: true },
+            thought: { type: String, required: true },
+            action: { type: String, required: true },
+            result: { type: Schema.Types.Mixed },
+            timestamp: { type: Number, required: true },
+            nodeId: { type: String },
+          }],
+          default: [],
+        },
+        lastExecutionId: { type: String },
+        totalExecutions: {
+          type: Number,
+          default: 0,
+        },
+      },
+      default: undefined,
+    },
+    totalExecutions: {
+      type: Number,
+      default: 0,
+    },
     name: {
       type: String,
       required: [true, 'Agent name is required'],
@@ -134,8 +189,13 @@ const AgentSchema = new Schema<IAgent>(
           },
           ternaryState: {
             type: String,
-            enum: ['TRUE', 'FALSE', 'UNKNOWN', 'ERROR'] as TernaryState[],
+            enum: ['TRUE', 'FALSE', 'UNKNOWN', 'ERROR', 'PROPAGATING', 'EVALUATING', 'BLOCKED'] as TernaryState[],
             default: 'UNKNOWN',
+          },
+          executionState: {
+            type: String,
+            enum: ['pending', 'executing', 'completed', 'failed', 'skipped'] as ExecutionState[],
+            default: 'pending',
           },
           inputs: {
             type: [String],
@@ -145,9 +205,25 @@ const AgentSchema = new Schema<IAgent>(
             type: [String],
             default: [],
           },
+          dependencies: {
+            type: [String],
+            default: [],
+          },
           executionOrder: { type: Number },
           lastExecution: { type: Date },
           executionTime: { type: Number },
+          executionCount: {
+            type: Number,
+            default: 0,
+          },
+          successCount: {
+            type: Number,
+            default: 0,
+          },
+          failureCount: {
+            type: Number,
+            default: 0,
+          },
           error: { type: String },
         },
         required: true,
@@ -265,6 +341,10 @@ const AgentSchema = new Schema<IAgent>(
       type: Boolean,
       default: false,
     },
+    totalExecutions: {
+      type: Number,
+      default: 0,
+    },
   },
   {
     timestamps: true,
@@ -322,15 +402,35 @@ AgentSchema.methods.clone = async function (this: IAgent): Promise<IAgent> {
   delete clonedData._id;
   delete clonedData.createdAt;
   delete clonedData.updatedAt;
+  delete clonedData.chainOfThought;
+  delete clonedData.lastExecutionId;
 
   // Add "Copy" to name
   clonedData.name = `${clonedData.name} (Copy)`;
+  clonedData.totalExecutions = 0;
 
   // Create new agent
   const clonedAgent = new AgentModel(clonedData);
   await clonedAgent.save();
 
   return clonedAgent;
+};
+
+// Method to add Chain of Thought step
+AgentSchema.methods.addChainOfThoughtStep = function (this: IAgent, step: {
+  step: number;
+  thought: string;
+  action: string;
+  result: any;
+  timestamp: number;
+  nodeId?: string;
+}): void {
+  if (!this.chainOfThought) {
+    this.chainOfThought = { steps: [], lastExecutionId: undefined, totalExecutions: 0 };
+  }
+  
+  this.chainOfThought.steps.push(step);
+  this.markModified('chainOfThought');
 };
 
 // Indexes

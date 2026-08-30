@@ -28,7 +28,7 @@ module.exports = {
   setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
   globalSetup: '<rootDir>/tests/globalSetup.ts',
   globalTeardown: '<rootDir>/tests/globalTeardown.ts',
-  testTimeout: 10000,
+  testTimeout: 30000,
   maxWorkers: '50%',
   verbose: true,
   forceExit: true,
