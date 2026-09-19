@@ -27,8 +27,8 @@ This manual provides the operational knowledge needed to manipulate the EDEN env
 The Terminal is your primary interface for commanding AI agents.
 
 ### Core Commands
-- `/local <prompt>`: Single-shot mutation. The AI will analyze your intent and add nodes/edges/files once.
-- `/gemini <prompt>`: Same as Local but uses the Gemini model.
+- `/local <prompt>`: Single-shot mutation against a local inference endpoint.
+- `/ai <prompt>`: Single-shot mutation through the configured AI API (server-side proxy).
 - `/clear`: Wipes the terminal history.
 - `/help`: Displays basic command syntax.
 
