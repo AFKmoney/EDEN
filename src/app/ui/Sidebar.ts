@@ -25,12 +25,71 @@ import { AppUiService } from '../core/AppUiService';
         <div class="flex flex-col gap-1 px-2">
           <div class="px-2 text-[10px] font-mono text-gray-500 uppercase tracking-widest mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">Micro Apps</div>
           
-          <!-- CLI Framework -->
+          <!-- AI Neural Hub / Providers -->
+          <button (click)="appUi.toggleProviderHub()"
+                  class="flex items-center h-10 px-2 rounded-xl transition-all cursor-pointer border border-transparent whitespace-nowrap"
+                  [ngClass]="appUi.isProviderHubOpen() ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 'text-gray-400 hover:text-white hover:bg-white/5'">
+            <mat-icon class="shrink-0 text-[var(--color-eden-neon)]">hub</mat-icon>
+            <span class="ml-4 font-mono text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center gap-1.5">
+              <span>AI Providers</span>
+              <span class="text-[9px] font-mono px-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">9</span>
+            </span>
+          </button>
+
+          <!-- Ternary AI Chat & OS Controller -->
           <button (click)="cliUi.toggle()"
                   class="flex items-center h-10 px-2 rounded-xl transition-all cursor-pointer border border-transparent whitespace-nowrap"
-                  [ngClass]="cliUi.isOpen() ? 'bg-purple-500/20 text-purple-400 border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.5)]' : 'text-gray-400 hover:text-white hover:bg-white/5'">
-            <mat-icon class="shrink-0">terminal</mat-icon>
-            <span class="ml-4 font-mono text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity duration-300">CLI Framework</span>
+                  [ngClass]="cliUi.isOpen() ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 'text-gray-400 hover:text-white hover:bg-white/5'">
+            <mat-icon class="shrink-0 text-emerald-400">psychology</mat-icon>
+            <span class="ml-4 font-mono text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity duration-300">Ternary AI Chat</span>
+          </button>
+
+          <!-- Truth Table & Formal Verification -->
+          <button (click)="appUi.toggleTruthTable()"
+                  class="flex items-center h-10 px-2 rounded-xl transition-all cursor-pointer border border-transparent whitespace-nowrap"
+                  [ngClass]="appUi.isTruthTableOpen() ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 'text-gray-400 hover:text-white hover:bg-white/5'">
+            <mat-icon class="shrink-0 text-emerald-400">analytics</mat-icon>
+            <span class="ml-4 font-mono text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity duration-300">Truth Table</span>
+          </button>
+
+          <!-- Oscilloscope & Logic Analyzer -->
+          <button (click)="appUi.toggleLogicAnalyzer()"
+                  class="flex items-center h-10 px-2 rounded-xl transition-all cursor-pointer border border-transparent whitespace-nowrap"
+                  [ngClass]="appUi.isLogicAnalyzerOpen() ? 'bg-amber-500/20 text-amber-400 border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.5)]' : 'text-gray-400 hover:text-white hover:bg-white/5'">
+            <mat-icon class="shrink-0 text-amber-400">show_chart</mat-icon>
+            <span class="ml-4 font-mono text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity duration-300">Oscilloscope</span>
+          </button>
+
+          <!-- Component Palette -->
+          <button (click)="appUi.toggleComponentPalette()"
+                  class="flex items-center h-10 px-2 rounded-xl transition-all cursor-pointer border border-transparent whitespace-nowrap"
+                  [ngClass]="appUi.isComponentPaletteOpen() ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.5)]' : 'text-gray-400 hover:text-white hover:bg-white/5'">
+            <mat-icon class="shrink-0 text-cyan-400">add_box</mat-icon>
+            <span class="ml-4 font-mono text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity duration-300">Component Palette</span>
+          </button>
+
+          <!-- Circuit Library -->
+          <button (click)="appUi.toggleCircuitLibrary()"
+                  class="flex items-center h-10 px-2 rounded-xl transition-all cursor-pointer border border-transparent whitespace-nowrap"
+                  [ngClass]="appUi.isCircuitLibraryOpen() ? 'bg-purple-500/20 text-purple-400 border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.5)]' : 'text-gray-400 hover:text-white hover:bg-white/5'">
+            <mat-icon class="shrink-0 text-purple-400">developer_board</mat-icon>
+            <span class="ml-4 font-mono text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity duration-300">Circuit Library</span>
+          </button>
+
+          <!-- TASM Studio & Transpiler -->
+          <button (click)="appUi.toggleTasmStudio()"
+                  class="flex items-center h-10 px-2 rounded-xl transition-all cursor-pointer border border-transparent whitespace-nowrap"
+                  [ngClass]="appUi.isTasmStudioOpen() ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.5)]' : 'text-gray-400 hover:text-white hover:bg-white/5'">
+            <mat-icon class="shrink-0 text-cyan-400">terminal</mat-icon>
+            <span class="ml-4 font-mono text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity duration-300">TASM Studio</span>
+          </button>
+
+          <!-- Telemetry HUD Toggle -->
+          <button (click)="appUi.toggleTelemetryHud()"
+                  class="flex items-center h-10 px-2 rounded-xl transition-all cursor-pointer border border-transparent whitespace-nowrap"
+                  [ngClass]="appUi.isTelemetryHudOpen() ? 'bg-purple-500/20 text-purple-400 border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.5)]' : 'text-gray-400 hover:text-white hover:bg-white/5'">
+            <mat-icon class="shrink-0 text-purple-400">speed</mat-icon>
+            <span class="ml-4 font-mono text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity duration-300">Telemetry HUD</span>
           </button>
 
           <!-- Package Manager -->
@@ -80,6 +139,14 @@ import { AppUiService } from '../core/AppUiService';
         <div class="flex flex-col gap-1 px-2">
           <div class="px-2 text-[10px] font-mono text-gray-500 uppercase tracking-widest mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">Graph Operations</div>
           
+          <!-- Auto Layout Side-by-Side (Zero Overlap) -->
+          <button (click)="engine.autoLayout()"
+                  title="Arrange all components side by side without overlapping"
+                  class="flex items-center h-10 px-2 rounded-xl transition-all cursor-pointer border border-transparent whitespace-nowrap text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10">
+            <mat-icon class="shrink-0">view_column</mat-icon>
+            <span class="ml-4 font-mono text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity duration-300">Side-by-Side</span>
+          </button>
+
           <!-- Undo -->
           <button (click)="engine.undo()" [disabled]="!engine.canUndo()"
                   class="flex items-center h-10 px-2 rounded-xl transition-all cursor-pointer border border-transparent whitespace-nowrap"

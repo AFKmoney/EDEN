@@ -147,7 +147,7 @@ export class AgentPersistenceService {
     // Clear current state
     this.engine.mutate({
       nodes: {},
-      connections: []
+      edges: {}
     });
 
     // Restore nodes and connections
@@ -172,6 +172,7 @@ export class AgentPersistenceService {
 
     try {
       const content = this.vfs.readFile(path);
+      if (!content) return null;
       return JSON.parse(content) as AgentSnapshot;
     } catch (error) {
       this.terminal.log(`Agent: Error reading - ${agentId}: ${error}`, 'ERROR');
@@ -187,10 +188,9 @@ export class AgentPersistenceService {
     const files = this.vfs.listFiles(this.AGENTS_DIR);
 
     for (const file of files) {
-      if (file.endsWith('.json')) {
+      if (file.path.endsWith('.json')) {
         try {
-          const content = this.vfs.readFile(`${this.AGENTS_DIR}/${file}`);
-          agents.push(JSON.parse(content) as AgentSnapshot);
+          agents.push(JSON.parse(file.content) as AgentSnapshot);
         } catch {
           // Skip invalid files
         }
@@ -294,6 +294,7 @@ export class AgentPersistenceService {
 
     try {
       const content = this.vfs.readFile(path);
+      if (!content) return false;
       const snapshot = JSON.parse(content) as AgentSnapshot;
       
       // Restore state
@@ -319,10 +320,9 @@ export class AgentPersistenceService {
     const files = this.vfs.listFiles(this.SNAPSHOTS_DIR);
 
     for (const file of files) {
-      if (file.endsWith('.json')) {
+      if (file.path.endsWith('.json')) {
         try {
-          const content = this.vfs.readFile(`${this.SNAPSHOTS_DIR}/${file}`);
-          snapshots.push(JSON.parse(content) as AgentSnapshot);
+          snapshots.push(JSON.parse(file.content) as AgentSnapshot);
         } catch {
           // Skip invalid files
         }
@@ -370,7 +370,7 @@ export class AgentPersistenceService {
       name: template.name,
       description: template.description,
       author: currentUser || 'Anonymous',
-      authorId: this.getCurrentUserId(),
+      authorId: this.getCurrentUserId() || '',
       nodes: { ...state.nodes },
       connections: [...state.connections],
       metadata: {
@@ -396,7 +396,12 @@ export class AgentPersistenceService {
   /**
    * Update a template
    */
-  updateTemplate(templateId: string, updates: Partial<Omit<AgentTemplate, 'id' | 'nodes' | 'connections'>>): AgentTemplate | null {
+  updateTemplate(
+    templateId: string,
+    updates: Partial<Omit<AgentTemplate, 'id' | 'nodes' | 'connections' | 'metadata'>> & {
+      metadata?: Partial<AgentTemplate['metadata']>;
+    }
+  ): AgentTemplate | null {
     const template = this.getTemplate(templateId);
     
     if (!template) {
@@ -408,7 +413,7 @@ export class AgentPersistenceService {
       ...updates,
       metadata: {
         ...template.metadata,
-        ...updates.metadata,
+        ...(updates.metadata || {}),
         updatedAt: Date.now()
       }
     };
@@ -432,6 +437,7 @@ export class AgentPersistenceService {
 
     try {
       const content = this.vfs.readFile(path);
+      if (!content) return null;
       return JSON.parse(content) as AgentTemplate;
     } catch {
       return null;
@@ -446,10 +452,9 @@ export class AgentPersistenceService {
     const files = this.vfs.listFiles(this.TEMPLATES_DIR);
 
     for (const file of files) {
-      if (file.endsWith('.json')) {
+      if (file.path.endsWith('.json')) {
         try {
-          const content = this.vfs.readFile(`${this.TEMPLATES_DIR}/${file}`);
-          const template = JSON.parse(content) as AgentTemplate;
+          const template = JSON.parse(file.content) as AgentTemplate;
           
           // Apply filters
           if (filter) {
@@ -499,7 +504,7 @@ export class AgentPersistenceService {
     // Clear current state
     this.engine.mutate({
       nodes: {},
-      connections: []
+      edges: {}
     });
 
     // Load template
@@ -666,6 +671,7 @@ export class AgentPersistenceService {
    * Get current user from auth service or localStorage
    */
   private getCurrentUser(): string | undefined {
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') return undefined;
     // Try to get from localStorage first (for mock auth)
     const user = localStorage.getItem('eden_user');
     if (user) {
@@ -683,6 +689,7 @@ export class AgentPersistenceService {
    * Get current user ID
    */
   private getCurrentUserId(): string | undefined {
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') return undefined;
     const user = localStorage.getItem('eden_user');
     if (user) {
       try {

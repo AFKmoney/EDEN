@@ -7,7 +7,7 @@ export class CompilerService {
 
   compile(): string {
     const genome = this.engine.genome();
-    const nodes = Object.values(genome.nodes);
+    const nodes = Object.values(genome.nodes) as any[];
 
     // Sort nodes by type to ensure Data -> Logic -> UI order conceptually
     const dataNodes = nodes.filter(n => n.type === 'Data');

@@ -4,7 +4,8 @@
   "description": "Visual AI Graph IDE with Ternary VM",
   "scripts": {
     "ng": "ng",
-    "start": "ng serve",
+    "dev": "ng serve --host 0.0.0.0 --port 3000",
+    "start": "node dist/app/server/server.mjs",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "jest",
@@ -12,27 +13,26 @@
     "test:coverage": "jest --coverage",
     "server": "ts-node src/server/index.ts",
     "server:dev": "nodemon src/server/index.ts",
-    "serve:ssr": "node dist/server/main.js",
-    "prestart": "npm run build:ssr",
-    "build:ssr": "npm run build -- --configuration production && npm run build:server",
-    "build:server": "tsc -p server.tsconfig.json",
-    "lint": "ng lint",
-    "e2e": "ng e2e"
+    "lint": "ng lint"
   },
   "private": true,
   "dependencies": {
     "@angular/animations": "^21.0.0",
+    "@angular/cdk": "^21.2.0",
     "@angular/common": "^21.0.0",
     "@angular/compiler": "^21.0.0",
     "@angular/core": "^21.0.0",
     "@angular/forms": "^21.0.0",
+    "@angular/material": "^21.2.0",
     "@angular/platform-browser": "^21.0.0",
     "@angular/platform-browser-dynamic": "^21.0.0",
-    "@angular/platform-server": "^16.2.0",
+    "@angular/platform-server": "^21.0.0",
     "@angular/router": "^21.0.0",
     "@angular/service-worker": "^21.0.0",
-    "@nguniversal/express-engine": "^16.2.0",
+    "@angular/ssr": "^21.0.0",
+    "@google/genai": "^2.23.0",
     "@socket.io/redis-adapter": "^8.3.0",
+    "@tailwindcss/postcss": "^4.0.0",
     "@types/socket.io": "^3.0.1",
     "bcryptjs": "^2.4.3",
     "express": "^4.18.2",
@@ -46,6 +46,7 @@
     "redis": "^4.6.10",
     "rxjs": "~7.8.0",
     "socket.io": "^4.8.3",
+    "tailwindcss": "^4.0.0",
     "tslib": "^2.3.0",
     "winston": "^3.19.0",
     "winston-daily-rotate-file": "^5.0.0",
@@ -71,6 +72,6 @@
     "nodemon": "^3.0.2",
     "ts-jest": "^29.4.12",
     "ts-node": "^10.9.2",
-    "typescript": "~5.4.0"
+    "typescript": "~5.9.0"
   }
 }

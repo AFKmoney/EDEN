@@ -12,8 +12,8 @@ import { FormsModule } from '@angular/forms';
   standalone: true,
   imports: [NgClass, NgIf, MatIconModule, DragDropModule, DatePipe, FormsModule],
   template: `
-    <div *ngIf="ui.isFileExplorerOpen()" class="fixed inset-0 z-50 pointer-events-none flex items-center justify-center">
-      <div cdkDrag class="pointer-events-auto w-[850px] h-[550px] bg-[var(--color-eden-surface)] backdrop-blur-3xl border border-[var(--color-eden-border)] rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+    <div *ngIf="ui.isFileExplorerOpen()" class="fixed inset-0 z-50 pointer-events-none flex items-center justify-center p-4">
+      <div cdkDrag cdkDragBoundary="body" class="pointer-events-auto w-[850px] max-w-[95vw] h-[550px] max-h-[92vh] bg-[var(--color-eden-surface)] backdrop-blur-3xl border border-[var(--color-eden-border)] rounded-2xl shadow-2xl flex flex-col overflow-hidden"
            style="box-shadow: 0 0 40px rgba(168, 85, 247, 0.15);"
            (dragover)="onDragOver($event)"
            (drop)="onFileDrop($event)"

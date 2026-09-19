@@ -54,6 +54,9 @@ export class AuthService {
    * Initialize auth state from localStorage
    */
   private initialize(): void {
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+      return;
+    }
     const token = localStorage.getItem('eden_token');
     const user = localStorage.getItem('eden_user');
 

@@ -43,8 +43,20 @@ export class VfsService {
     this.saveToLocalStorage();
   }
 
-  listFiles(): VirtualFile[] {
-    return Object.values(this.filesState()).sort((a, b) => a.path.localeCompare(b.path));
+  exists(path: string): boolean {
+    return !!this.filesState()[path];
+  }
+
+  createDirectory(dir: string): void {
+    // Virtual directory support
+  }
+
+  listFiles(prefix?: string): VirtualFile[] {
+    const all = Object.values(this.filesState());
+    if (prefix) {
+      return all.filter(f => f.path.startsWith(prefix)).sort((a, b) => a.path.localeCompare(b.path));
+    }
+    return all.sort((a, b) => a.path.localeCompare(b.path));
   }
 
   /**
@@ -175,6 +187,7 @@ export class VfsService {
   }
 
   private saveToLocalStorage() {
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
     try {
       localStorage.setItem('eden_vfs_save', JSON.stringify(this.filesState()));
     } catch (e) {
@@ -183,6 +196,11 @@ export class VfsService {
   }
 
   public loadFromLocalStorage() {
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+      // Default files in SSR / headless
+      this.writeFile('/readme.md', '# EDEN Virtual File System\n\nWelcome to the VM space. The AI can read and write files here.\nYou can upload files from your machine and download files to your disk.');
+      return;
+    }
     try {
       const saved = localStorage.getItem('eden_vfs_save');
       if (saved) {

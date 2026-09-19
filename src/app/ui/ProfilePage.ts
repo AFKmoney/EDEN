@@ -5,8 +5,6 @@ import { Router, RouterModule } from '@angular/router';
 import { AuthService, User } from '../core/AuthService';
 import { TerminalService } from '../core/TerminalService';
 import { AgentPersistenceService } from '../core/AgentPersistenceService';
-n// Fix TypeScript strict mode
-const { Object } = globalThis;
 
 export interface UserStats {
   agentsCreated: number;
@@ -186,7 +184,7 @@ export interface UserStats {
                     }
                   </div>
                   <div class="mt-3 flex items-center justify-between text-xs text-slate-500">
-                    <span>{{ Object.keys((agent as any).nodes).length }} nodes</span>
+                    <span>{{ getNodeCount(agent) }} nodes</span>
                     <span>{{ agent.connections.length }} connections</span>
                   </div>
                 </div>
@@ -375,6 +373,10 @@ export class ProfilePage implements OnInit {
     });
   }
 
+  getNodeCount(agent: any): number {
+    return agent?.nodes ? Object.keys(agent.nodes).length : 0;
+  }
+
   filteredAgents() {
     let agents = [...this.allAgents];
     const userId = this.auth.getUser()?.id || '';
@@ -388,7 +390,7 @@ export class ProfilePage implements OnInit {
       agents = agents.filter(a => 
         a.name.toLowerCase().includes(search) ||
         a.description?.toLowerCase().includes(search) ||
-        (a as any).metadata?.tags.some(tag => tag.toLowerCase().includes(search))
+        (a as any).metadata?.tags?.some((tag: string) => tag.toLowerCase().includes(search))
       );
     }
 

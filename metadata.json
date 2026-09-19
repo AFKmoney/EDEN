@@ -1,5 +1,6 @@
 {
   "name": "EDEN",
-  "description": "Visual AI Graph IDE with Ternary VM, powered by Qwen & Gemini CLIs",
-  "requestFramePermissions": []
+  "description": "Ternary OS Development IDE with interactive AI Copilot, ternary logic gates (-1, 0, +1), virtual machine controls, and multi-provider neural hub.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

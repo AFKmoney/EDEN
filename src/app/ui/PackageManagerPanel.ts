@@ -13,7 +13,7 @@ import { AppUiService } from '../core/AppUiService';
     <!-- Overlay Panel -->
     <div *ngIf="ui.isPackageManagerOpen()" class="fixed inset-0 z-[60] pointer-events-none flex items-center justify-center">
       
-      <div cdkDrag class="pointer-events-auto w-full max-w-2xl bg-[var(--color-eden-surface)] backdrop-blur-2xl border border-[var(--color-eden-border)] rounded-2xl shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col">
+      <div cdkDrag cdkDragBoundary="body" class="pointer-events-auto w-full max-w-2xl bg-[var(--color-eden-surface)] backdrop-blur-2xl border border-[var(--color-eden-border)] rounded-2xl shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col">
         
         <!-- Header -->
         <div cdkDragHandle class="flex items-center justify-between px-4 py-3 border-b border-[var(--color-eden-border)] bg-black/20 cursor-move">

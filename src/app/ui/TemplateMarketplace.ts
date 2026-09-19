@@ -369,9 +369,11 @@ export class TemplateMarketplace {
 
   constructor() {
     // Load liked templates from localStorage
-    const liked = localStorage.getItem('eden_liked_templates');
-    if (liked) {
-      this.likedTemplates = new Set(JSON.parse(liked));
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+      const liked = localStorage.getItem('eden_liked_templates');
+      if (liked) {
+        this.likedTemplates = new Set(JSON.parse(liked));
+      }
     }
   }
 

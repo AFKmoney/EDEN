@@ -13,7 +13,7 @@ import { NgIf } from '@angular/common';
   template: `
     <!-- Floating Window -->
     <div *ngIf="ui.isCodePreviewOpen()" class="fixed inset-0 z-50 pointer-events-none flex items-center justify-center">
-      <div cdkDrag class="pointer-events-auto w-[800px] h-[600px] max-w-[90vw] max-h-[90vh] bg-[var(--color-eden-bg)] border border-[var(--color-eden-border)] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+      <div cdkDrag cdkDragBoundary="body" class="pointer-events-auto w-[800px] h-[600px] max-w-[90vw] max-h-[90vh] bg-[var(--color-eden-bg)] border border-[var(--color-eden-border)] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
 
         <!-- Header -->
         <div cdkDragHandle class="flex items-center justify-between p-4 border-b border-[var(--color-eden-border)] bg-[var(--color-eden-surface)] cursor-move">

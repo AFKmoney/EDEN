@@ -268,7 +268,7 @@ export class WebhookService {
         webhookId: webhook.id,
         webhookName: webhook.name,
         url: webhook.url,
-        status: response?.status || 200,
+        status: (response as any)?.status || 200,
         response: response,
         timestamp: Date.now()
       };

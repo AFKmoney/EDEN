@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { AiMode } from './EdenAiPipelineService';
+import { AiProvider } from '../types/provider';
 
 export interface CliResponse {
   stdout?: string;
@@ -11,26 +12,69 @@ export interface CliResponse {
  * CliService — HTTP client for the EDEN CLI backend API.
  * 
  * Communicates with the Express server's /api/cli endpoint to execute
- * Local and Gemini CLI tools. Supports different execution modes
- * (eden, raw, plan, yolo) that control how the CLI is invoked.
+ * AI tools across all supported providers (NVIDIA, Claude, Gemini, OpenAI,
+ * DeepSeek, Groq, Mistral, OpenRouter, Local Ollama).
  */
 @Injectable({ providedIn: 'root' })
 export class CliService {
 
+  private getStoredKey(provider: string): string {
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') return '';
+    try {
+      const keys = JSON.parse(localStorage.getItem('eden_provider_keys') || '{}');
+      return keys[provider] || '';
+    } catch {
+      return '';
+    }
+  }
+
+  public setStoredKey(provider: string, key: string) {
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
+    try {
+      const keys = JSON.parse(localStorage.getItem('eden_provider_keys') || '{}');
+      if (key && key.trim()) {
+        keys[provider] = key.trim();
+      } else {
+        delete keys[provider];
+      }
+      localStorage.setItem('eden_provider_keys', JSON.stringify(keys));
+    } catch {}
+  }
+
+  public getAllStoredKeys(): Record<string, string> {
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') return {};
+    try {
+      return JSON.parse(localStorage.getItem('eden_provider_keys') || '{}');
+    } catch {
+      return {};
+    }
+  }
+
   /**
    * Execute a CLI command against the server.
-   * @param tool - Which CLI to invoke ('local' or 'gemini')
-   * @param args - The arguments/prompt to pass
-   * @param mode - Execution mode (eden, raw, plan, yolo)
    */
-  async execute(tool: 'local' | 'gemini', args: string = '', mode: AiMode = 'yolo'): Promise<CliResponse> {
+  async execute(
+    tool: AiProvider | string, 
+    args: string = '', 
+    mode: AiMode = 'yolo',
+    model?: string,
+    customApiKey?: string
+  ): Promise<CliResponse> {
     try {
+      const key = customApiKey || this.getStoredKey(tool);
       const response = await fetch('/api/cli', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ tool, args, mode }),
+        body: JSON.stringify({ 
+          tool, 
+          provider: tool, 
+          args, 
+          mode, 
+          model, 
+          customApiKey: key 
+        }),
       });
       
       return await response.json();
@@ -43,12 +87,26 @@ export class CliService {
    * Execute a CLI command and stream the response via SSE fetch reader.
    * Updates UI continuously as chunks arrive.
    */
-  async *executeStream(tool: 'local' | 'gemini', args: string = '', mode: AiMode = 'yolo'): AsyncGenerator<any, void, unknown> {
+  async *executeStream(
+    tool: AiProvider | string, 
+    args: string = '', 
+    mode: AiMode = 'yolo',
+    model?: string,
+    customApiKey?: string
+  ): AsyncGenerator<any, void, unknown> {
     try {
+      const key = customApiKey || this.getStoredKey(tool);
       const response = await fetch('/api/cli/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tool, args, mode })
+        body: JSON.stringify({ 
+          tool, 
+          provider: tool, 
+          args, 
+          mode, 
+          model, 
+          customApiKey: key 
+        })
       });
 
       if (!response.body) return;
@@ -83,3 +141,4 @@ export class CliService {
     }
   }
 }
+

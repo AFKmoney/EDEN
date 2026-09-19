@@ -32,10 +32,10 @@ export const routes: Routes = [
   {
     path: '',
     pathMatch: 'full',
-    redirectTo: '/'
+    children: []
   },
   {
     path: '**',
-    redirectTo: '/'
+    redirectTo: ''
   }
 ];

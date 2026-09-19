@@ -17,7 +17,7 @@ let mongoConnection: typeof mongoose | null = null;
 /**
  * Connect to MongoDB
  */
-export async function connectMongoDB(): Promise<typeof mongoose> {
+export async function connectMongoDB(): Promise<typeof mongoose | null> {
   if (mongoConnection) {
     return mongoConnection;
   }
@@ -25,10 +25,11 @@ export async function connectMongoDB(): Promise<typeof mongoose> {
   console.log(`Connecting to MongoDB at ${MONGO_URI}...`);
 
   try {
+    mongoose.set('bufferCommands', false); // Fail fast, don't hang
     mongoConnection = await mongoose.connect(MONGO_URI, {
-      connectTimeoutMS: 10000,
-      socketTimeoutMS: 30000,
-      serverSelectionTimeoutMS: 10000,
+      connectTimeoutMS: 5000,
+      socketTimeoutMS: 10000,
+      serverSelectionTimeoutMS: 5000,
       retryWrites: true,
       retryReads: true,
     });
@@ -53,8 +54,8 @@ export async function connectMongoDB(): Promise<typeof mongoose> {
     console.log('✅ MongoDB connected');
     return mongoConnection;
   } catch (error) {
-    console.error('❌ MongoDB connection failed:', error);
-    throw error;
+    console.warn('⚠️ MongoDB not connected — some backend features may use mock storage:', error);
+    return null;
   }
 }
 
@@ -83,7 +84,7 @@ let redisClient: RedisClientType | null = null;
 /**
  * Connect to Redis
  */
-export async function connectRedis(): Promise<RedisClientType> {
+export async function connectRedis(): Promise<RedisClientType | null> {
   if (redisClient) {
     return redisClient;
   }
@@ -94,31 +95,24 @@ export async function connectRedis(): Promise<RedisClientType> {
     redisClient = createClient({
       url: REDIS_URL,
       socket: {
-        connectTimeout: 10000,
-        timeout: 30000,
-        reconnectStrategy: (retries) => Math.min(retries * 100, 5000),
+        connectTimeout: 5000,
+        timeout: 5000,
+        reconnectStrategy: false,
       },
       database: NODE_ENV === 'test' ? 1 : 0,
     });
 
     redisClient.on('error', (err) => {
-      console.error('❌ Redis error:', err);
-    });
-
-    redisClient.on('connect', () => {
-      console.log('✅ Redis connected successfully');
-    });
-
-    redisClient.on('disconnect', () => {
-      console.log('⚠️ Redis disconnected');
+      console.warn('⚠️ Redis error:', err.message);
     });
 
     await redisClient.connect();
     console.log('✅ Redis connected');
     return redisClient;
   } catch (error) {
-    console.error('❌ Redis connection failed:', error);
-    throw error;
+    console.warn('⚠️ Redis connection failed, continuing without Redis cache:', error);
+    redisClient = null;
+    return null;
   }
 }
 
@@ -164,10 +158,9 @@ export async function initializeDatabase(): Promise<void> {
       await connectRedis();
     }
 
-    console.log('✅ All database connections initialized');
+    console.log('✅ Database connections process completed');
   } catch (error) {
-    console.error('❌ Database initialization failed:', error);
-    throw error;
+    console.warn('⚠️ Database initialization warning:', error);
   }
 }
 
