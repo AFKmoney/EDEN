@@ -6,8 +6,8 @@
 
 [![Angular](https://img.shields.io/badge/Angular-21-DD0031?style=for-the-badge&logo=angular&logoColor=white)](https://angular.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
-[![Ternary Logic](https://img.shields.io/badge/Logic-Balanced_Ternary_(-1,_0,_+1)-06B6D4?style=for-the-badge)](#-ternary-virtual-machine)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-38B2AC?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![Ternary Logic](https://img.shields.io/badge/Logic-Balanced_Ternary-06B6D4?style=for-the-badge)](#-ternary-virtual-machine)
 [![AI Copilot](https://img.shields.io/badge/AI_Copilot-Multi--Provider_API-10B981?style=for-the-badge)](#-ai-copilot--api-hub)
 [![Version](https://img.shields.io/badge/Version-1.0.0-blueviolet?style=for-the-badge)](package.json)
 [![License](https://img.shields.io/badge/License-MIT-gray?style=for-the-badge)](#-license)
