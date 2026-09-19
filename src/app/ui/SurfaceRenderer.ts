@@ -3,6 +3,7 @@ import { DecimalPipe } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { CoreEngine, CANVAS_BOUNDS, getNodeDimensions } from '../core/CoreEngine';
 import { AppUiService } from '../core/AppUiService';
+import { CliUiService } from '../core/CliUiService';
 import { NodeRenderer } from './NodeRenderer';
 import { ContextMenu, ContextMenuData } from './ContextMenu';
 import { EdenNode } from '../types/node';
@@ -242,6 +243,7 @@ import { EdenEdge } from '../types/edge';
 export class SurfaceRenderer {
   public engine = inject(CoreEngine);
   public appUi = inject(AppUiService);
+  public cliUi = inject(CliUiService);
   readonly bounds = CANVAS_BOUNDS;
   
   nodeList = computed<EdenNode[]>(() => Object.values(this.engine.genome().nodes) as EdenNode[]);
@@ -462,6 +464,75 @@ export class SurfaceRenderer {
     this.draggingNode.set(null);
     this.resizingNode.set(null);
     this.isPanning.set(false);
+  }
+
+  @HostListener('window:keydown', ['$event'])
+  onKeyDown(e: KeyboardEvent) {
+    // If typing inside an input/textarea, do not capture single-letter hotkeys
+    const target = e.target as HTMLElement | null;
+    const isInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+
+    // Ctrl+K or Cmd+K: Toggle AI Copilot
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      this.cliUi.toggle();
+      return;
+    }
+
+    // Escape: close context menu, cancel draft edge
+    if (e.key === 'Escape') {
+      if (this.contextMenuData()) {
+        this.contextMenuData.set(null);
+        return;
+      }
+      if (this.draftEdge()) {
+        this.draftEdge.set(null);
+        return;
+      }
+    }
+
+    if (isInput) return;
+
+    // Spacebar: Toggle VM run/pause
+    if (e.code === 'Space') {
+      e.preventDefault();
+      this.engine.toggleVM();
+      return;
+    }
+
+    // 'T' / 't': Truth Table modal toggle
+    if (e.key === 't' || e.key === 'T') {
+      if (!e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        this.appUi.toggleTruthTable();
+        return;
+      }
+    }
+
+    // 'O' / 'o': Oscilloscope modal toggle
+    if (e.key === 'o' || e.key === 'O') {
+      if (!e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        this.appUi.toggleLogicAnalyzer();
+        return;
+      }
+    }
+
+    // 'L' / 'l': Auto Layout
+    if (e.key === 'l' || e.key === 'L') {
+      if (!e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        this.engine.autoLayout();
+        return;
+      }
+    }
+
+    // '0': Recenter canvas
+    if (e.key === '0' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      this.recenterView();
+      return;
+    }
   }
 
   startNodeDrag(data: {nodeId: string, event: MouseEvent}) {

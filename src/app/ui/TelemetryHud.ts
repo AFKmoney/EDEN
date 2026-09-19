@@ -43,7 +43,7 @@ import { EdenNode } from '../types/node';
       <!-- Real-Time Shannon Entropy & Net Charge -->
       <div class="flex items-center gap-3 pr-3 border-r border-white/10">
         <div class="flex flex-col">
-          <span class="text-[9px] text-zinc-500 uppercase font-semibold tracking-wider">Entropie H3</span>
+          <span class="text-[9px] text-zinc-500 uppercase font-semibold tracking-wider">Entropy H3</span>
           <span class="text-cyan-400 font-bold tabular-nums">{{ shannonEntropy() }}</span>
         </div>
 

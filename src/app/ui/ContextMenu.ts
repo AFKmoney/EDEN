@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { CoreEngine } from '../core/CoreEngine';
 import { AppUiService } from '../core/AppUiService';
+import { TerminalService } from '../core/TerminalService';
 import { LogicGateType, TernaryValue, EdenNode } from '../types/node';
 import { EdenEdge } from '../types/edge';
 
@@ -236,6 +237,7 @@ export class ContextMenu {
 
   public engine = inject(CoreEngine);
   public appUi = inject(AppUiService);
+  public terminal = inject(TerminalService);
 
   readonly commonGates: { type: LogicGateType; name: string }[] = [
     { type: 'AND', name: 'AND (Min)' },
@@ -380,7 +382,7 @@ export class ContextMenu {
     const code = this.engine.generateVerilogHdl();
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
       navigator.clipboard.writeText(code);
-      alert('Synthesizable Verilog HDL code copied to clipboard!');
+      this.terminal.log('Synthesizable Verilog HDL code copied to clipboard.', 'SYSTEM');
     }
     this.close.emit();
   }
