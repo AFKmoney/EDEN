@@ -8,7 +8,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7+-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4.0-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 [![Ternary Logic](https://img.shields.io/badge/Logic-Balanced_Ternary_(-1,_0,_+1)-06B6D4?style=for-the-badge)](#-the-ternary-virtual-machine)
-[![Gemini 2.5](https://img.shields.io/badge/AI_Copilot-Gemini_2.5_&_Local_LLMs-10B981?style=for-the-badge&logo=google-gemini&logoColor=white)](#-ai-copilot--multi-provider-neural-hub)
+[![AI Copilot](https://img.shields.io/badge/AI_Copilot-Multi--Provider_API-10B981?style=for-the-badge)](#-ai-copilot--multi-provider-neural-hub)
 [![Status](https://img.shields.io/badge/Release-v3.2.0_LTS-blueviolet?style=for-the-badge)](#)
 [![License](https://img.shields.io/badge/License-MIT-gray?style=for-the-badge)](LICENSE)
 
@@ -65,7 +65,7 @@ EDEN provides a glassmorphic visual environment where engineers, researchers, an
 ### 6. 🧠 Autonomous AI Copilot & Multi-Provider Hub
 - **Chain-of-Thought (CoT) Reasoning**: Inspect the AI's internal technical monologue in real-time as it reasons about circuit topology.
 - **Recursive Agentic Loop (`/agent`)**: Launch multi-turn OODA (Observe-Orient-Decide-Act) agents that autonomously synthesize, test, and correct circuits.
-- **Multi-Provider Support**: Switch seamlessly between **Google Gemini**, **Local Ollama**, **OpenRouter**, **Anthropic Claude**, and custom inference endpoints.
+- **Provider-Agnostic AI API**: Point EDEN at any compatible inference API — cloud endpoints or a local server. Keys stay on the backend; the UI only talks to EDEN's own API.
 
 ### 7. 📂 Virtual File System (VFS) & Terminal REPL
 - **In-Memory VFS**: Browser-persisted file system with drag-and-drop bundle imports and JSON project exports.
@@ -135,14 +135,14 @@ In EDEN, all logic gates evaluate according to **Kleene strong 3-valued logic** 
 ### 1. Gate Truth Tables
 
 #### Kleene AND Gate (`min(A, B)`)
-| A \ B | **-1** | **0** | **+1** |
+| A \\ B | **-1** | **0** | **+1** |
 | :---: | :---: | :---: | :---: |
 | **-1** | -1 | -1 | -1 |
 | **0** | -1 | 0 | 0 |
 | **+1** | -1 | 0 | +1 |
 
 #### Kleene OR Gate (`max(A, B)`)
-| A \ B | **-1** | **0** | **+1** |
+| A \\ B | **-1** | **0** | **+1** |
 | :---: | :---: | :---: | :---: |
 | **-1** | -1 | 0 | +1 |
 | **0** | 0 | 0 | +1 |
@@ -228,12 +228,14 @@ npm install
 Create a `.env` file in the root directory (or copy from `.env.example`):
 
 ```env
-# Google Gemini API Key (Server-Side Proxy)
-GEMINI_API_KEY=your_gemini_api_key_here
+# Optional: AI API key for the server-side proxy
+AI_API_KEY=your_api_key_here
 
-# Optional: Local LLM Endpoint (e.g. Ollama)
+# Optional: local inference endpoint
 LOCAL_LLM_URL=http://localhost:11434
 ```
+
+Copy `.env.example` for the full list of optional provider keys. EDEN talks to inference through its own backend API — pick whichever compatible endpoint you have, cloud or local. No specific vendor is required.
 
 ### 3. Launch the Development Server
 ```bash
@@ -290,7 +292,7 @@ EDEN/
 │   │       └── ChatPanel.ts        # AI Copilot chat & reasoning stream
 │   ├── main.ts                     # Client entry point
 │   ├── main.server.ts              # SSR bootstrap entry point
-│   └── server.ts                   # Express server & secure Gemini API proxy
+│   └── server.ts                   # Express server & secure AI API proxy
 ├── docs/                           # Extended manuals & architectural specs
 │   ├── MANUAL.md                   # Detailed user guide
 │   ├── DOCUMENTATION.md            # Technical VM specifications
@@ -305,7 +307,7 @@ EDEN/
 ## 🔒 Security & Sandboxing
 
 EDEN adheres to strict security and architectural best practices:
-1. **Server-Side API Keys**: The `GEMINI_API_KEY` is kept strictly within the Express server backend (`/src/server.ts`) and is never leaked to client bundles.
+1. **Server-Side API Keys**: Inference credentials stay on the Express backend (`/src/server.ts`) and are never leaked to client bundles. The browser only calls EDEN's own API.
 2. **Subprocess Isolation**: External CLI tools and local inference providers run within restricted timeouts (120s max) to prevent denial-of-service hanging.
 3. **Input Sanitization**: All terminal commands and AI graph mutations are strictly validated against TypeScript type contracts and JSON schema parsers.
 4. **Sandboxed Virtual File System**: The VFS operates entirely in-memory with local storage persistence, preventing arbitrary disk access.
