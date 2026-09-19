@@ -1,0 +1,87 @@
+name: Publish v1.0.0 release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create or update v1.0.0
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Publish v1.0.0
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          NOTES=$(cat <<'EOF'
+          ## EDEN 1.0.0 — Kleene kernel
+
+          Snapshot of `main` after the 2026-09-19 code audit.
+          Docs and version badge now match `package.json` **1.0.0** (the old “v3.2.0 LTS” label is retired).
+
+          Tag target: current `main`.
+          Previous public tag: `v0.1.1` (2026-05-02, empty notes).
+
+          ### In this release
+
+          - Balanced ternary canvas VM (`CoreEngine`) — Kleene AND/OR/NOT, XOR mod-3, CONSENSUS, MUX, LATCH, CLOCK, ADDER/FULLADDER, synthesizers (half-adder, ALU, neuron, RAM word, LFSR, …)
+          - TASM compiler dialect that actually parses: `INPUT` / `GATE` / `PROBE` + decompile + dual-rail Verilog (AND/OR/NOT)
+          - 3^N truth table (cap 3 inputs) and oscilloscope UI
+          - AI copilot via EDEN API (`/api/cli`, `/api/cli/stream`) — provider-agnostic; local synthesizer fallback without a network
+          - API process `:4000` — auth, agents, templates, webhooks; `executeAgent` server VM with Jest AND/OR/NOT tests
+          - README + TIMELINE rewritten to the code; Gemini branding removed from public docs
+
+          ### Two processes
+
+          | Command | Port | Role |
+          |---|---|---|
+          | `npm run dev` | 3000 | Angular SSR + canvas + AI proxy |
+          | `npm run server` | 4000 | Mongo/Redis API + ternary execute |
+
+          ### Known gaps (see TIMELINE.md)
+
+          - Three gate evaluators not yet unified (CoreEngine / TruthTable / AgentService)
+          - No `SET3`/`ADD3` parser (README now documents INPUT/GATE/PROBE only)
+          - Verilog XOR incomplete; C++ emit is a stub
+          - `/api/cli` still defaults `tool` to `gemini` in `src/server.ts`
+          - Missing root `LICENSE` file
+          - No unit tests on `CoreEngine` itself
+
+          Full audit: [TIMELINE.md](https://github.com/AFKmoney/EDEN/blob/main/TIMELINE.md)
+          EOF
+          )
+          # strip accidental leading spaces from the heredoc
+          NOTES=$(printf '%s\n' "$NOTES" | sed 's/^          //')
+
+          if gh release view v1.0.0 >/dev/null 2>&1; then
+            gh release edit v1.0.0 \
+              --title "EDEN 1.0.0 — Kleene kernel" \
+              --notes "$NOTES" \
+              --latest
+          else
+            gh release create v1.0.0 \
+              --target main \
+              --title "EDEN 1.0.0 — Kleene kernel" \
+              --notes "$NOTES" \
+              --latest
+          fi
+
+          # Keep v0.1.1 as historical; add a one-line body if still empty
+          OLD=$(gh release view v0.1.1 --json body -q .body || true)
+          if [ -z "$OLD" ]; then
+            gh release edit v0.1.1 \
+              --notes "Historical tag (2026-05-02). Current release is v1.0.0." || true
+          fi
