@@ -66,15 +66,22 @@ Toggle via the Sidebar.
 
 ---
 
-## 🖱️ Keybindings
+## 🖱️ Keybindings & Global Shortcuts
 
-| Command | Action |
-| :--- | :--- |
-| `Ctrl + Space` | Trigger Neural Prompt Bar |
-| `F4` | Toggle CLI Panel / Agent Tracker |
-| `~` or `Alt+T` | Toggle Terminal visibility |
-| `Delete` | Remove selected node/edge |
+| Shortcut | Action | Scope |
+| :--- | :--- | :--- |
+| `Space` | Toggle Virtual Machine (Play / Pause) | Global |
+| `Ctrl + K` | Open AI Copilot & Reasoning Stream | Global |
+| `Ctrl + Space` | Trigger Neural Prompt Bar | Global |
+| `T` | Toggle Truth Table & Formal Verification | Global |
+| `O` | Toggle Oscilloscope & Logic Analyzer | Global |
+| `L` | Re-run Auto-Layout (Zero-Overlap Side-by-Side) | Canvas |
+| `Ctrl + 0` | Recenter Viewport & Reset Zoom to Origin | Canvas |
+| `F4` | Toggle CLI Panel / Agent Tracker | Global |
+| `Ctrl + D` | Duplicate Selected Component | Canvas |
+| `Delete` / `Backspace` | Remove Selected Node or Wire Connection | Canvas |
+| `Escape` | Close Active Modal or Deselect Node | Global |
 
 ---
 
-*Verified by Vibecheck v3.1.0*
+*Verified for EDEN v3.2.0 LTS*

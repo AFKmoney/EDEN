@@ -1,0 +1,215 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" width="1200" height="675">
+  <defs>
+    <linearGradient id="tasmBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#060a14"/>
+      <stop offset="100%" stop-color="#0a1224"/>
+    </linearGradient>
+    <filter id="neonCyan" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <filter id="neonEmerald" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <style>
+    .mono { font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace; }
+    .sans { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+  </style>
+
+  <!-- Canvas Background -->
+  <rect width="1200" height="675" fill="url(#tasmBg)"/>
+
+  <!-- Top Title Bar -->
+  <rect x="0" y="0" width="1200" height="46" fill="#0b1329" stroke="#1e293b" stroke-width="1"/>
+  <text x="24" y="28" fill="#38bdf8" class="mono" font-size="14" font-weight="700">&lt; TASM STUDIO // TERNARY ASSEMBLY TRANSPILER &amp; DISASSEMBLER &gt;</text>
+  <rect x="990" y="10" width="180" height="26" rx="6" fill="#0284c7" fill-opacity="0.15" stroke="#0284c7"/>
+  <text x="1080" y="26" fill="#38bdf8" class="mono" font-size="11" text-anchor="middle">&#x2714; VERILOG / VHDL TARGET</text>
+
+  <!-- LEFT: TASM Code Editor -->
+  <g transform="translate(30, 70)">
+    <rect width="660" height="565" rx="14" fill="#080e1c" stroke="#1e3a5f" stroke-width="1.5" filter="drop-shadow(0 15px 30px rgba(0,0,0,0.8))"/>
+    
+    <!-- Editor Header -->
+    <rect width="660" height="38" fill="#0c172e" rx="14 14 0 0"/>
+    <circle cx="20" cy="19" r="4" fill="#38bdf8"/>
+    <text x="32" y="23" fill="#38bdf8" class="mono" font-size="12" font-weight="700">kernel_alu_add3.tasm</text>
+    <text x="520" y="23" fill="#64748b" class="mono" font-size="11">UTF-8 &bull; BALANCED_3</text>
+
+    <!-- Code Line Numbers and Content -->
+    <g transform="translate(20, 60)" class="mono" font-size="12">
+      <!-- Line 1 -->
+      <text x="0" y="20" fill="#475569">01</text>
+      <text x="35" y="20" fill="#64748b">; --- EDEN Ternary ALU: Balanced 3-Trit Adder ---</text>
+
+      <!-- Line 2 -->
+      <text x="0" y="44" fill="#475569">02</text>
+      <text x="35" y="44" fill="#c084fc">.arch</text>
+      <text x="85" y="44" fill="#e2e8f0"> kleene_core_v3</text>
+
+      <!-- Line 3 -->
+      <text x="0" y="68" fill="#475569">03</text>
+      <text x="35" y="68" fill="#c084fc">.trit_width</text>
+      <text x="130" y="68" fill="#e2e8f0"> 9</text>
+      <text x="160" y="68" fill="#64748b">; 9-trit word = 19,683 states</text>
+
+      <!-- Line 4 -->
+      <text x="0" y="92" fill="#475569">04</text>
+      <text x="35" y="92" fill="#38bdf8">INIT:</text>
+
+      <!-- Line 5 -->
+      <text x="0" y="116" fill="#475569">05</text>
+      <text x="35" y="116" fill="#34d399">    SET3 </text>
+      <text x="85" y="116" fill="#f8fafc"> T0, +1          </text>
+      <text x="210" y="116" fill="#64748b">; Register T0 = TRUE (+1)</text>
+
+      <!-- Line 6 -->
+      <text x="0" y="140" fill="#475569">06</text>
+      <text x="35" y="140" fill="#34d399">    SET3 </text>
+      <text x="85" y="140" fill="#f8fafc"> T1, 0           </text>
+      <text x="210" y="140" fill="#64748b">; Register T1 = UNKNOWN (0)</text>
+
+      <!-- Line 7 -->
+      <text x="0" y="164" fill="#475569">07</text>
+      <text x="35" y="164" fill="#34d399">    SET3 </text>
+      <text x="85" y="164" fill="#f8fafc"> T2, -1          </text>
+      <text x="210" y="164" fill="#64748b">; Register T2 = FALSE (-1)</text>
+
+      <!-- Line 8 -->
+      <text x="0" y="188" fill="#475569">08</text>
+      <text x="35" y="188" fill="#38bdf8">PROCESS:</text>
+
+      <!-- Line 9 -->
+      <text x="0" y="212" fill="#475569">09</text>
+      <text x="35" y="212" fill="#38bdf8">    ADD3 </text>
+      <text x="85" y="212" fill="#f8fafc"> T3, T0, T1      </text>
+      <text x="210" y="212" fill="#64748b">; Sum = (+1) + (0) &rarr; T3 = +1</text>
+
+      <!-- Line 10 -->
+      <text x="0" y="236" fill="#475569">10</text>
+      <text x="35" y="236" fill="#38bdf8">    CARRY</text>
+      <text x="85" y="236" fill="#f8fafc"> T4, T0, T1      </text>
+      <text x="210" y="236" fill="#64748b">; Overflow Carry &rarr; T4 = 0</text>
+
+      <!-- Line 11 -->
+      <text x="0" y="260" fill="#475569">11</text>
+      <text x="35" y="260" fill="#f59e0b">    INV3 </text>
+      <text x="85" y="260" fill="#f8fafc"> T5, T2          </text>
+      <text x="210" y="260" fill="#64748b">; Invert: -(-1) &rarr; T5 = +1</text>
+
+      <!-- Line 12 -->
+      <text x="0" y="284" fill="#475569">12</text>
+      <text x="35" y="284" fill="#ec4899">    CONS </text>
+      <text x="85" y="284" fill="#f8fafc"> T6, T3, T5      </text>
+      <text x="210" y="284" fill="#64748b">; Kleene Consensus Voter</text>
+
+      <!-- Line 13 -->
+      <text x="0" y="308" fill="#475569">13</text>
+      <text x="35" y="308" fill="#38bdf8">    OUT3 </text>
+      <text x="85" y="308" fill="#f8fafc"> PORT_ALU, T6    </text>
+      <text x="210" y="308" fill="#64748b">; Output bus dispatch</text>
+
+      <!-- Line 14 -->
+      <text x="0" y="332" fill="#475569">14</text>
+      <text x="35" y="332" fill="#ef4444">    HALT </text>
+      <text x="85" y="332" fill="#64748b">; Yield execution cycle</text>
+    </g>
+
+    <!-- Editor Status Bar -->
+    <g transform="translate(20, 510)">
+      <rect width="620" height="36" rx="6" fill="#0e1726" stroke="#1e293b"/>
+      <circle cx="20" cy="18" r="5" fill="#10b981" filter="url(#neonEmerald)"/>
+      <text x="35" y="22" fill="#34d399" class="mono" font-size="11" font-weight="700">COMPILER STATUS: 0 ERRORS, 0 WARNINGS &bull; 14 OPCODES COMPILED</text>
+    </g>
+  </g>
+
+  <!-- RIGHT: REGISTER TELEMETRY & HDL TRANSPILER -->
+  <g transform="translate(715, 70)">
+    
+    <!-- Panel 1: Trit Register Bank (T0-T7) -->
+    <rect width="455" height="260" rx="14" fill="#0c1427" stroke="#334155" stroke-width="1.5" filter="drop-shadow(0 15px 30px rgba(0,0,0,0.8))"/>
+    <rect width="455" height="36" fill="#141f36" rx="14 14 0 0"/>
+    <text x="20" y="23" fill="#38bdf8" class="mono" font-size="12" font-weight="700">KERNEL TRIT REGISTERS (BALANCED)</text>
+    
+    <g transform="translate(20, 52)" class="mono" font-size="11">
+      <!-- Reg T0 -->
+      <rect x="0" y="0" width="95" height="42" rx="6" fill="#0f172a" stroke="#1e293b"/>
+      <text x="12" y="18" fill="#94a3b8">T0 (R0)</text>
+      <text x="12" y="34" fill="#34d399" font-weight="700">+1 (TRUE)</text>
+
+      <!-- Reg T1 -->
+      <rect x="105" y="0" width="95" height="42" rx="6" fill="#0f172a" stroke="#1e293b"/>
+      <text x="117" y="18" fill="#94a3b8">T1 (R1)</text>
+      <text x="117" y="34" fill="#94a3b8" font-weight="700"> 0 (UNK)</text>
+
+      <!-- Reg T2 -->
+      <rect x="210" y="0" width="95" height="42" rx="6" fill="#0f172a" stroke="#1e293b"/>
+      <text x="222" y="18" fill="#94a3b8">T2 (R2)</text>
+      <text x="222" y="34" fill="#ef4444" font-weight="700">-1 (FLS)</text>
+
+      <!-- Reg T3 -->
+      <rect x="315" y="0" width="100" height="42" rx="6" fill="#0f172a" stroke="#1e293b"/>
+      <text x="327" y="18" fill="#94a3b8">T3 (SUM)</text>
+      <text x="327" y="34" fill="#34d399" font-weight="700">+1 (TRUE)</text>
+
+      <!-- Reg T4 -->
+      <rect x="0" y="52" width="95" height="42" rx="6" fill="#0f172a" stroke="#1e293b"/>
+      <text x="12" y="70" fill="#94a3b8">T4 (CRY)</text>
+      <text x="12" y="86" fill="#94a3b8" font-weight="700"> 0 (UNK)</text>
+
+      <!-- Reg T5 -->
+      <rect x="105" y="52" width="95" height="42" rx="6" fill="#0f172a" stroke="#1e293b"/>
+      <text x="117" y="70" fill="#94a3b8">T5 (INV)</text>
+      <text x="117" y="86" fill="#34d399" font-weight="700">+1 (TRUE)</text>
+
+      <!-- Reg T6 -->
+      <rect x="210" y="52" width="95" height="42" rx="6" fill="#0f172a" stroke="#1e293b"/>
+      <text x="222" y="70" fill="#94a3b8">T6 (CNS)</text>
+      <text x="222" y="86" fill="#34d399" font-weight="700">+1 (TRUE)</text>
+
+      <!-- Reg T7 -->
+      <rect x="315" y="52" width="100" height="42" rx="6" fill="#0f172a" stroke="#1e293b"/>
+      <text x="327" y="70" fill="#94a3b8">T7 (OUT)</text>
+      <text x="327" y="86" fill="#34d399" font-weight="700">+1 (HIGH)</text>
+    </g>
+
+    <text x="20" y="175" fill="#64748b" class="mono" font-size="10">VM CLOCK: <tspan fill="#38bdf8">1.500 kHz</tspan> &bull; INSTRUCTION POINTER: <tspan fill="#34d399">0x000E</tspan></text>
+    <rect x="20" y="190" width="415" height="50" rx="6" fill="#070d1a" stroke="#1e293b"/>
+    <text x="35" y="210" fill="#94a3b8" class="mono" font-size="10">Radix-3 Economy Factor:</text>
+    <text x="35" y="228" fill="#38bdf8" class="mono" font-size="11" font-weight="700">E = 3 / ln(3) &approx; 2.7307 (95.3% of theoretical Shannon maximum)</text>
+
+    <!-- Panel 2: Verilog / HDL Transpile Output -->
+    <g transform="translate(0, 280)">
+      <rect width="455" height="285" rx="14" fill="#0c1427" stroke="#334155" stroke-width="1.5" filter="drop-shadow(0 15px 30px rgba(0,0,0,0.8))"/>
+      <rect width="455" height="36" fill="#141f36" rx="14 14 0 0"/>
+      <text x="20" y="23" fill="#a855f7" class="mono" font-size="12" font-weight="700">HARDWARE SYNTHESIS (VERILOG HDL)</text>
+      
+      <g transform="translate(20, 50)" class="mono" font-size="11">
+        <text x="0" y="18" fill="#c084fc">module</text>
+        <text x="50" y="18" fill="#f8fafc"> ternary_half_adder (</text>
+        
+        <text x="15" y="38" fill="#38bdf8">input  wire [1:0] </text>
+        <text x="145" y="38" fill="#f8fafc">trit_a,  // 2-bit balanced encoding</text>
+
+        <text x="15" y="58" fill="#38bdf8">input  wire [1:0] </text>
+        <text x="145" y="58" fill="#f8fafc">trit_b,</text>
+
+        <text x="15" y="78" fill="#34d399">output reg  [1:0] </text>
+        <text x="145" y="78" fill="#f8fafc">sum_out,</text>
+
+        <text x="15" y="98" fill="#34d399">output reg  [1:0] </text>
+        <text x="145" y="98" fill="#f8fafc">carry_out</text>
+
+        <text x="0" y="118" fill="#f8fafc">);</text>
+        <text x="15" y="138" fill="#64748b">// 2'b01 = +1, 2'b00 = 0, 2'b11 = -1</text>
+        <text x="15" y="158" fill="#c084fc">always @(*) begin</text>
+        <text x="30" y="178" fill="#f8fafc">sum_out   = kleene_add(trit_a, trit_b);</text>
+        <text x="30" y="198" fill="#f8fafc">carry_out = kleene_cry(trit_a, trit_b);</text>
+        <text x="15" y="218" fill="#c084fc">end</text>
+      </g>
+    </g>
+  </g>
+
+</svg>
