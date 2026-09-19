@@ -2,5 +2,5 @@
   "name": "EDEN",
   "description": "Ternary OS Development IDE with interactive AI Copilot, ternary logic gates (-1, 0, +1), virtual machine controls, and multi-provider neural hub.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_AI_API"]
 }
