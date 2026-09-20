@@ -7,6 +7,7 @@ import { EdenAiPipelineService, AiMode, ChatMessage } from '../core/EdenAiPipeli
 import { AppUiService } from '../core/AppUiService';
 import { CoreEngine } from '../core/CoreEngine';
 import { AI_PROVIDERS, AiProvider } from '../types/provider';
+import { WindowResizer } from '../core/WindowResizer';
 
 @Component({
   selector: 'eden-chat-panel',
@@ -15,10 +16,14 @@ import { AI_PROVIDERS, AiProvider } from '../types/provider';
   template: `
     <div *ngIf="ui.isOpen()" 
          (click)="onBackdropClick($event)"
-         class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/40 backdrop-blur-[2px]">
+         class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/40 backdrop-blur-[2px]">
       <div cdkDrag cdkDragBoundary="body" 
            (click)="$event.stopPropagation()"
-           class="pointer-events-auto w-[680px] max-w-[96vw] h-[82vh] max-h-[850px] bg-[var(--color-eden-surface)] backdrop-blur-3xl border border-[var(--color-eden-border)] rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-shadow duration-300"
+           [style.width.px]="resizer.width()"
+           [style.height.px]="resizer.height()"
+           [style.max-width]="resizer.isMaximized() ? '99vw' : '96vw'"
+           [style.max-height]="resizer.isMaximized() ? '98vh' : '94vh'"
+           class="relative pointer-events-auto bg-[var(--color-eden-surface)] backdrop-blur-3xl border border-[var(--color-eden-border)] rounded-2xl shadow-2xl flex flex-col overflow-hidden select-text transition-shadow duration-300"
            style="box-shadow: 0 0 50px rgba(16, 185, 129, 0.15), 0 20px 40px rgba(0, 0, 0, 0.8);">
         
         <!-- HEADER -->
@@ -55,6 +60,13 @@ import { AI_PROVIDERS, AiProvider } from '../types/provider';
                     title="Configure AI API keys"
                     class="p-1.5 rounded-lg text-zinc-400 hover:text-[var(--color-eden-neon)] hover:bg-white/5 transition-colors cursor-pointer">
               <mat-icon style="font-size: 18px; width: 18px; height: 18px;">settings</mat-icon>
+            </button>
+
+            <!-- Maximize / Restore -->
+            <button (click)="resizer.toggleMaximize()"
+                    [title]="resizer.isMaximized() ? 'Restore size' : 'Maximize window'"
+                    class="text-gray-400 hover:text-white transition-colors cursor-pointer p-1.5 rounded-lg hover:bg-white/5">
+              <mat-icon style="font-size: 18px; width: 18px; height: 18px;">{{ resizer.isMaximized() ? 'filter_none' : 'crop_square' }}</mat-icon>
             </button>
 
             <!-- Close button -->
@@ -307,6 +319,23 @@ import { AI_PROVIDERS, AiProvider } from '../types/provider';
           </div>
         </div>
 
+        <!-- Window Resize Handles -->
+        @if (!resizer.isMaximized()) {
+          <div (pointerdown)="resizer.onResizeStart($event, 'right')"
+               class="absolute top-0 right-0 w-2 h-full cursor-ew-resize hover:bg-emerald-500/30 transition-colors z-20"
+               title="Resize width"></div>
+          <div (pointerdown)="resizer.onResizeStart($event, 'bottom')"
+               class="absolute bottom-0 left-0 h-2 w-full cursor-ns-resize hover:bg-emerald-500/30 transition-colors z-20"
+               title="Resize height"></div>
+          <div (pointerdown)="resizer.onResizeStart($event, 'corner')"
+               class="absolute bottom-0 right-0 w-6 h-6 cursor-nwse-resize flex items-end justify-end p-1 text-zinc-500 hover:text-emerald-400 select-none z-30 transition-colors"
+               title="Drag to resize window">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M22 22H20V20H22V22ZM22 18H20V16H22V18ZM18 22H16V20H18V22ZM22 14H20V12H22V14ZM18 18H16V16H18V18ZM14 22H12V20H14V22Z"/>
+            </svg>
+          </div>
+        }
+
       </div>
     </div>
   `,
@@ -334,6 +363,14 @@ export class ChatPanel implements AfterViewChecked {
   public appUi = inject(AppUiService);
   public pipeline = inject(EdenAiPipelineService);
   public engine = inject(CoreEngine);
+
+  public resizer = new WindowResizer({
+    storageKey: 'chat_panel',
+    defaultWidth: 700,
+    defaultHeight: 680,
+    minWidth: 420,
+    minHeight: 380
+  });
 
   readonly providerList: AiProvider[] = [
     'nvidia', 'claude', 'gemini', 'openai', 'deepseek', 'groq', 'mistral', 'openrouter', 'local'

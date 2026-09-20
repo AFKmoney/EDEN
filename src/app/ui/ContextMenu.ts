@@ -6,6 +6,7 @@ import { AppUiService } from '../core/AppUiService';
 import { TerminalService } from '../core/TerminalService';
 import { LogicGateType, TernaryValue, EdenNode } from '../types/node';
 import { EdenEdge } from '../types/edge';
+import { copyToClipboard } from '../core/ClipboardUtil';
 
 export interface ContextMenuData {
   type: 'NODE' | 'EDGE' | 'CANVAS';
@@ -378,11 +379,13 @@ export class ContextMenu {
     this.close.emit();
   }
 
-  exportVerilog() {
+  async exportVerilog() {
     const code = this.engine.generateVerilogHdl();
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(code);
+    const success = await copyToClipboard(code);
+    if (success) {
       this.terminal.log('Synthesizable Verilog HDL code copied to clipboard.', 'SYSTEM');
+    } else {
+      this.terminal.log('Generated Verilog HDL code (clipboard unavailable).', 'WARN');
     }
     this.close.emit();
   }

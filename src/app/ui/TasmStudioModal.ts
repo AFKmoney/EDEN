@@ -1,28 +1,37 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
+import { DragDropModule } from '@angular/cdk/drag-drop';
 import { AppUiService } from '../core/AppUiService';
 import { CoreEngine } from '../core/CoreEngine';
 import { TasmCompilerService } from '../core/TasmCompilerService';
 import { TerminalService } from '../core/TerminalService';
+import { copyToClipboard } from '../core/ClipboardUtil';
+import { WindowResizer } from '../core/WindowResizer';
 
 type TranspileTarget = 'tasm' | 'verilog' | 'cpp';
 
 @Component({
   selector: 'eden-tasm-studio-modal',
   standalone: true,
-  imports: [CommonModule, MatIconModule],
+  imports: [CommonModule, MatIconModule, DragDropModule],
   template: `
     <div id="tasm-studio-overlay" 
-         class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 sm:p-6 animate-fade-in"
+         class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4 animate-fade-in"
          (click)="close()">
       
       <div id="tasm-studio-card"
-           class="bg-[#0f1117] border border-white/10 rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden"
+           cdkDrag cdkDragBoundary="body"
+           [style.width.px]="resizer.width()"
+           [style.height.px]="resizer.height()"
+           [style.max-width]="resizer.isMaximized() ? '99vw' : '96vw'"
+           [style.max-height]="resizer.isMaximized() ? '98vh' : '94vh'"
+           class="relative bg-[#0f1117] border border-white/10 rounded-2xl flex flex-col shadow-2xl overflow-hidden select-text"
            (click)="$event.stopPropagation()">
         
         <!-- Header -->
-        <div class="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
+        <div cdkDragHandle
+             class="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-white/[0.02] cursor-move select-none shrink-0">
           <div class="flex items-center gap-3">
             <div class="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
               <mat-icon class="text-lg">terminal</mat-icon>
@@ -45,24 +54,31 @@ type TranspileTarget = 'tasm' | 'verilog' | 'cpp';
             <div class="flex items-center bg-black/50 p-0.5 rounded-lg border border-white/10 text-xs font-mono">
               <button (click)="activeTarget.set('tasm')"
                       [ngClass]="activeTarget() === 'tasm' ? 'bg-cyan-500 text-black font-bold shadow-sm' : 'text-zinc-400 hover:text-white'"
-                      class="px-2.5 py-1 rounded transition-colors">
+                      class="px-2.5 py-1 rounded transition-colors cursor-pointer">
                 TASM
               </button>
               <button (click)="switchToVerilog()"
                       [ngClass]="activeTarget() === 'verilog' ? 'bg-cyan-500 text-black font-bold shadow-sm' : 'text-zinc-400 hover:text-white'"
-                      class="px-2.5 py-1 rounded transition-colors">
+                      class="px-2.5 py-1 rounded transition-colors cursor-pointer">
                 Verilog HDL
               </button>
               <button (click)="switchToCpp()"
                       [ngClass]="activeTarget() === 'cpp' ? 'bg-cyan-500 text-black font-bold shadow-sm' : 'text-zinc-400 hover:text-white'"
-                      class="px-2.5 py-1 rounded transition-colors">
+                      class="px-2.5 py-1 rounded transition-colors cursor-pointer">
                 C++20 VM
               </button>
             </div>
 
+            <!-- Maximize / Restore -->
+            <button (click)="resizer.toggleMaximize()"
+                    [title]="resizer.isMaximized() ? 'Restore size' : 'Maximize window'"
+                    class="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer">
+              <mat-icon class="text-lg">{{ resizer.isMaximized() ? 'filter_none' : 'crop_square' }}</mat-icon>
+            </button>
+
             <button id="btn-close-tasm"
                     (click)="close()"
-                    class="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/5 transition-colors">
+                    class="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer">
               <mat-icon class="text-lg">close</mat-icon>
             </button>
           </div>
@@ -157,6 +173,23 @@ type TranspileTarget = 'tasm' | 'verilog' | 'cpp';
           <span class="text-[10px] text-zinc-600">Dual-Rail Verilog Synthesizable</span>
         </div>
 
+        <!-- Window Resize Handles -->
+        @if (!resizer.isMaximized()) {
+          <div (pointerdown)="resizer.onResizeStart($event, 'right')"
+               class="absolute top-0 right-0 w-2 h-full cursor-ew-resize hover:bg-cyan-500/30 transition-colors z-20"
+               title="Resize width"></div>
+          <div (pointerdown)="resizer.onResizeStart($event, 'bottom')"
+               class="absolute bottom-0 left-0 h-2 w-full cursor-ns-resize hover:bg-cyan-500/30 transition-colors z-20"
+               title="Resize height"></div>
+          <div (pointerdown)="resizer.onResizeStart($event, 'corner')"
+               class="absolute bottom-0 right-0 w-6 h-6 cursor-nwse-resize flex items-end justify-end p-1 text-zinc-500 hover:text-cyan-400 select-none z-30 transition-colors"
+               title="Drag to resize window">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M22 22H20V20H22V22ZM22 18H20V16H22V18ZM18 22H16V20H18V22ZM22 14H20V12H22V14ZM18 18H16V16H18V18ZM14 22H12V20H14V22Z"/>
+            </svg>
+          </div>
+        }
+
       </div>
     </div>
   `
@@ -166,6 +199,14 @@ export class TasmStudioModal implements OnInit {
   private engine = inject(CoreEngine);
   private tasm = inject(TasmCompilerService);
   private terminal = inject(TerminalService);
+
+  public resizer = new WindowResizer({
+    storageKey: 'tasm_studio',
+    defaultWidth: 980,
+    defaultHeight: 700,
+    minWidth: 500,
+    minHeight: 360
+  });
 
   activeTarget = signal<TranspileTarget>('tasm');
   tasmCode = signal<string>('');
@@ -324,10 +365,15 @@ PROBE stream, lfsr_core`;
     return this.displayedCode().split('\n').length;
   }
 
-  copyCode() {
-    navigator.clipboard.writeText(this.displayedCode());
-    this.isCopied.set(true);
-    setTimeout(() => this.isCopied.set(false), 2000);
+  async copyCode() {
+    const success = await copyToClipboard(this.displayedCode());
+    if (success) {
+      this.isCopied.set(true);
+      this.terminal.log(`[TASM] Code copied to clipboard (${this.getFileName()}).`, 'SYSTEM');
+      setTimeout(() => this.isCopied.set(false), 2000);
+    } else {
+      this.terminal.log('[TASM] Unable to write to clipboard in this environment.', 'WARN');
+    }
   }
 
   downloadCode() {

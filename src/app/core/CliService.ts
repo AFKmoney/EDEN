@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import { AiMode } from './EdenAiPipelineService';
 import { AiProvider } from '../types/provider';
 
@@ -18,14 +18,11 @@ export interface CliResponse {
 @Injectable({ providedIn: 'root' })
 export class CliService {
 
+  public storedKeys = signal<Record<string, string>>(this.getAllStoredKeys());
+
   private getStoredKey(provider: string): string {
-    if (typeof window === 'undefined' || typeof localStorage === 'undefined') return '';
-    try {
-      const keys = JSON.parse(localStorage.getItem('eden_provider_keys') || '{}');
-      return keys[provider] || '';
-    } catch {
-      return '';
-    }
+    const keys = this.storedKeys();
+    return keys[provider] || '';
   }
 
   public setStoredKey(provider: string, key: string) {
@@ -38,6 +35,7 @@ export class CliService {
         delete keys[provider];
       }
       localStorage.setItem('eden_provider_keys', JSON.stringify(keys));
+      this.storedKeys.set({ ...keys });
     } catch {}
   }
 

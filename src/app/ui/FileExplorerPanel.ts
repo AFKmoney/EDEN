@@ -6,14 +6,20 @@ import { AppUiService } from '../core/AppUiService';
 import { VfsService, VirtualFile } from '../core/VfsService';
 import { TerminalService } from '../core/TerminalService';
 import { FormsModule } from '@angular/forms';
+import { WindowResizer } from '../core/WindowResizer';
 
 @Component({
   selector: 'eden-file-explorer',
   standalone: true,
   imports: [NgClass, NgIf, MatIconModule, DragDropModule, DatePipe, FormsModule],
   template: `
-    <div *ngIf="ui.isFileExplorerOpen()" class="fixed inset-0 z-50 pointer-events-none flex items-center justify-center p-4">
-      <div cdkDrag cdkDragBoundary="body" class="pointer-events-auto w-[850px] max-w-[95vw] h-[550px] max-h-[92vh] bg-[var(--color-eden-surface)] backdrop-blur-3xl border border-[var(--color-eden-border)] rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+    <div *ngIf="ui.isFileExplorerOpen()" class="fixed inset-0 z-50 pointer-events-none flex items-center justify-center p-2 sm:p-4">
+      <div cdkDrag cdkDragBoundary="body" 
+           [style.width.px]="resizer.width()"
+           [style.height.px]="resizer.height()"
+           [style.max-width]="resizer.isMaximized() ? '99vw' : '96vw'"
+           [style.max-height]="resizer.isMaximized() ? '98vh' : '94vh'"
+           class="relative pointer-events-auto bg-[var(--color-eden-surface)] backdrop-blur-3xl border border-[var(--color-eden-border)] rounded-2xl shadow-2xl flex flex-col overflow-hidden select-text"
            style="box-shadow: 0 0 40px rgba(168, 85, 247, 0.15);"
            (dragover)="onDragOver($event)"
            (drop)="onFileDrop($event)"
@@ -28,7 +34,7 @@ import { FormsModule } from '@angular/forms';
         </div>
 
         <!-- Header -->
-        <div cdkDragHandle class="flex items-center justify-between p-4 border-b border-[var(--color-eden-border)] bg-gradient-to-r from-purple-500/10 to-transparent cursor-move">
+        <div cdkDragHandle class="flex items-center justify-between p-4 border-b border-[var(--color-eden-border)] bg-gradient-to-r from-purple-500/10 to-transparent cursor-move select-none shrink-0">
           <div class="flex items-center gap-2">
             <mat-icon class="text-purple-400">folder_open</mat-icon>
             <h2 class="text-white font-mono font-bold tracking-wider">VIRTUAL FILE SYSTEM</h2>
@@ -52,7 +58,13 @@ import { FormsModule } from '@angular/forms';
               <mat-icon style="font-size: 14px; width: 14px; height: 14px;">folder_zip</mat-icon>
               IMPORT
             </button>
-            <button (click)="ui.toggleFileExplorer()" class="text-gray-400 hover:text-white transition-colors cursor-pointer ml-2">
+            <!-- Maximize / Restore -->
+            <button (click)="resizer.toggleMaximize()"
+                    [title]="resizer.isMaximized() ? 'Restore size' : 'Maximize window'"
+                    class="text-gray-400 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/10 cursor-pointer ml-1">
+              <mat-icon style="font-size: 18px; width: 18px; height: 18px;">{{ resizer.isMaximized() ? 'filter_none' : 'crop_square' }}</mat-icon>
+            </button>
+            <button (click)="ui.toggleFileExplorer()" class="text-gray-400 hover:text-white transition-colors cursor-pointer p-1.5 rounded-lg hover:bg-white/10">
               <mat-icon>close</mat-icon>
             </button>
           </div>
@@ -132,10 +144,27 @@ import { FormsModule } from '@angular/forms';
         </div>
 
         <!-- Status Bar -->
-        <div class="flex items-center justify-between px-4 py-1.5 bg-black/40 border-t border-[var(--color-eden-border)] text-[10px] font-mono text-gray-500">
+        <div class="flex items-center justify-between px-4 py-1.5 bg-black/40 border-t border-[var(--color-eden-border)] text-[10px] font-mono text-gray-500 shrink-0">
           <span>EDEN VFS v2.0 // {{ fileCount() }} files</span>
           <span>Drag & drop supported • Upload • Download • Export/Import</span>
         </div>
+
+        <!-- Window Resize Handles -->
+        @if (!resizer.isMaximized()) {
+          <div (pointerdown)="resizer.onResizeStart($event, 'right')"
+               class="absolute top-0 right-0 w-2 h-full cursor-ew-resize hover:bg-purple-500/30 transition-colors z-20"
+               title="Resize width"></div>
+          <div (pointerdown)="resizer.onResizeStart($event, 'bottom')"
+               class="absolute bottom-0 left-0 h-2 w-full cursor-ns-resize hover:bg-purple-500/30 transition-colors z-20"
+               title="Resize height"></div>
+          <div (pointerdown)="resizer.onResizeStart($event, 'corner')"
+               class="absolute bottom-0 right-0 w-6 h-6 cursor-nwse-resize flex items-end justify-end p-1 text-zinc-500 hover:text-purple-400 select-none z-30 transition-colors"
+               title="Drag to resize window">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M22 22H20V20H22V22ZM22 18H20V16H22V18ZM18 22H16V20H18V22ZM22 14H20V12H22V14ZM18 18H16V16H18V18ZM14 22H12V20H14V22Z"/>
+            </svg>
+          </div>
+        }
       </div>
     </div>
   `
@@ -144,6 +173,14 @@ export class FileExplorerPanel {
   public ui = inject(AppUiService);
   public vfs = inject(VfsService);
   private terminal = inject(TerminalService);
+
+  public resizer = new WindowResizer({
+    storageKey: 'file_explorer',
+    defaultWidth: 880,
+    defaultHeight: 560,
+    minWidth: 500,
+    minHeight: 360
+  });
 
   @ViewChild('fileUploadInput') fileUploadInput!: ElementRef<HTMLInputElement>;
   @ViewChild('importInput') importInput!: ElementRef<HTMLInputElement>;

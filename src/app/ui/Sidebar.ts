@@ -1,14 +1,16 @@
 import { Component, inject } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { NgClass } from '@angular/common';
+import { RouterModule } from '@angular/router';
 import { CoreEngine } from '../core/CoreEngine';
 import { CliUiService } from '../core/CliUiService';
 import { AppUiService } from '../core/AppUiService';
+import { AuthService } from '../core/AuthService';
 
 @Component({
   selector: 'eden-sidebar',
   standalone: true,
-  imports: [MatIconModule, NgClass],
+  imports: [MatIconModule, NgClass, RouterModule],
   template: `
     <div class="fixed left-0 top-0 h-full w-16 hover:w-64 bg-[var(--color-eden-surface)] backdrop-blur-2xl border-r border-[var(--color-eden-border)] z-[100] transition-all duration-300 flex flex-col overflow-hidden group shadow-[0_0_50px_rgba(0,0,0,0.5)]">
       
@@ -185,6 +187,36 @@ import { AppUiService } from '../core/AppUiService';
           </button>
         </div>
 
+        <div class="h-px bg-[var(--color-eden-border)] mx-4"></div>
+
+        <!-- CLOUD & COMMUNITY SECTION -->
+        <div class="flex flex-col gap-1 px-2">
+          <div class="px-2 text-[10px] font-mono text-gray-500 uppercase tracking-widest mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">Cloud & Community</div>
+
+          <!-- Template Marketplace -->
+          <a [routerLink]="['/marketplace']"
+             class="flex items-center h-10 px-2 rounded-xl transition-all cursor-pointer border border-transparent whitespace-nowrap text-purple-400 hover:text-white hover:bg-purple-500/20">
+            <mat-icon class="shrink-0">storefront</mat-icon>
+            <span class="ml-4 font-mono text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity duration-300">Marketplace</span>
+          </a>
+
+          <!-- User Account / Profile -->
+          <a [routerLink]="auth.isAuth() ? ['/profile'] : ['/login']"
+             class="flex items-center h-10 px-2 rounded-xl transition-all cursor-pointer border border-transparent whitespace-nowrap text-cyan-400 hover:text-white hover:bg-cyan-500/20">
+            <mat-icon class="shrink-0">{{ auth.isAuth() ? 'account_circle' : 'login' }}</mat-icon>
+            <span class="ml-4 font-mono text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+              {{ auth.isAuth() ? (auth.getUser()?.name || 'My Profile') : 'Sign In' }}
+            </span>
+          </a>
+
+          <!-- Return to Graph Canvas -->
+          <a [routerLink]="['/']"
+             class="flex items-center h-10 px-2 rounded-xl transition-all cursor-pointer border border-transparent whitespace-nowrap text-gray-400 hover:text-emerald-400 hover:bg-emerald-500/10">
+            <mat-icon class="shrink-0">grid_view</mat-icon>
+            <span class="ml-4 font-mono text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity duration-300">Graph Canvas</span>
+          </a>
+        </div>
+
       </div>
     </div>
   `,
@@ -208,4 +240,5 @@ export class Sidebar {
   public engine = inject(CoreEngine);
   public cliUi = inject(CliUiService);
   public appUi = inject(AppUiService);
+  public auth = inject(AuthService);
 }

@@ -1,26 +1,34 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
+import { DragDropModule } from '@angular/cdk/drag-drop';
 import { AppUiService } from '../core/AppUiService';
 import { TruthTableService, VerificationReport } from '../core/TruthTableService';
 import { EdenAiPipelineService } from '../core/EdenAiPipelineService';
 import { TernaryValue } from '../types/node';
+import { WindowResizer } from '../core/WindowResizer';
 
 @Component({
   selector: 'eden-truth-table-modal',
   standalone: true,
-  imports: [CommonModule, MatIconModule],
+  imports: [CommonModule, MatIconModule, DragDropModule],
   template: `
     <div id="truth-table-overlay" 
-         class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 sm:p-6 animate-fade-in"
+         class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4 animate-fade-in"
          (click)="close()">
       
       <div id="truth-table-card"
-           class="bg-[#0f1117] border border-white/10 rounded-2xl w-full max-w-4xl max-h-[88vh] flex flex-col shadow-2xl overflow-hidden"
+           cdkDrag cdkDragBoundary="body"
+           [style.width.px]="resizer.width()"
+           [style.height.px]="resizer.height()"
+           [style.max-width]="resizer.isMaximized() ? '99vw' : '96vw'"
+           [style.max-height]="resizer.isMaximized() ? '98vh' : '94vh'"
+           class="relative bg-[#0f1117] border border-white/10 rounded-2xl flex flex-col shadow-2xl overflow-hidden select-text"
            (click)="$event.stopPropagation()">
         
         <!-- Header -->
-        <div class="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
+        <div cdkDragHandle
+             class="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-white/[0.02] cursor-move select-none shrink-0">
           <div class="flex items-center gap-3">
             <div class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
               <mat-icon class="text-lg">analytics</mat-icon>
@@ -41,19 +49,35 @@ import { TernaryValue } from '../types/node';
           <div class="flex items-center gap-2">
             <button id="btn-refresh-truth-table"
                     (click)="runVerification()"
-                    class="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 text-xs font-mono flex items-center gap-1.5 transition-colors border border-white/5">
+                    class="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 text-xs font-mono flex items-center gap-1.5 transition-colors border border-white/5 cursor-pointer">
               <mat-icon class="text-sm">refresh</mat-icon>
               <span>Re-evaluate</span>
             </button>
+            <button id="btn-export-truth-report"
+                    (click)="exportReport()"
+                    title="Export truth table matrix to text report"
+                    class="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 text-xs font-mono flex items-center gap-1.5 transition-colors border border-white/5 cursor-pointer">
+              <mat-icon class="text-sm">download</mat-icon>
+              <span>Export Report</span>
+            </button>
             <button id="btn-ai-explain-truth"
                     (click)="requestAiAnalysis()"
-                    class="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-medium flex items-center gap-1.5 transition-colors shadow-sm">
+                    class="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-medium flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer">
               <mat-icon class="text-sm">smart_toy</mat-icon>
               <span>AI Diagnostic</span>
             </button>
+
+            <!-- Maximize / Restore -->
+            <button (click)="resizer.toggleMaximize()"
+                    [title]="resizer.isMaximized() ? 'Restore size' : 'Maximize window'"
+                    class="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer">
+              <mat-icon class="text-lg">{{ resizer.isMaximized() ? 'filter_none' : 'crop_square' }}</mat-icon>
+            </button>
+
+            <!-- Close -->
             <button id="btn-close-truth-modal"
                     (click)="close()"
-                    class="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/5 transition-colors">
+                    class="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer">
               <mat-icon class="text-lg">close</mat-icon>
             </button>
           </div>
@@ -160,6 +184,23 @@ import { TernaryValue } from '../types/node';
             <span>Export Report (.txt)</span>
           </button>
         </div>
+
+        <!-- Window Resize Handles -->
+        @if (!resizer.isMaximized()) {
+          <div (pointerdown)="resizer.onResizeStart($event, 'right')"
+               class="absolute top-0 right-0 w-2 h-full cursor-ew-resize hover:bg-emerald-500/30 transition-colors z-20"
+               title="Resize width"></div>
+          <div (pointerdown)="resizer.onResizeStart($event, 'bottom')"
+               class="absolute bottom-0 left-0 h-2 w-full cursor-ns-resize hover:bg-emerald-500/30 transition-colors z-20"
+               title="Resize height"></div>
+          <div (pointerdown)="resizer.onResizeStart($event, 'corner')"
+               class="absolute bottom-0 right-0 w-6 h-6 cursor-nwse-resize flex items-end justify-end p-1 text-zinc-500 hover:text-emerald-400 select-none z-30 transition-colors"
+               title="Drag to resize window">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M22 22H20V20H22V22ZM22 18H20V16H22V18ZM18 22H16V20H18V22ZM22 14H20V12H22V14ZM18 18H16V16H18V18ZM14 22H12V20H14V22Z"/>
+            </svg>
+          </div>
+        }
       </div>
     </div>
   `
@@ -168,6 +209,14 @@ export class TruthTableModal implements OnInit {
   private appUi = inject(AppUiService);
   private truthService = inject(TruthTableService);
   private ai = inject(EdenAiPipelineService);
+
+  public resizer = new WindowResizer({
+    storageKey: 'truth_table',
+    defaultWidth: 920,
+    defaultHeight: 680,
+    minWidth: 480,
+    minHeight: 350
+  });
 
   report = signal<VerificationReport | null>(null);
 

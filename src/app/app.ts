@@ -1,4 +1,5 @@
 import {ChangeDetectionStrategy, Component, inject} from '@angular/core';
+import {RouterOutlet} from '@angular/router';
 import {FloatingChatButton} from './ui/FloatingChatButton';
 import {SurfaceRenderer} from './ui/SurfaceRenderer';
 import {CodePreviewPanel} from './ui/CodePreviewPanel';
@@ -35,7 +36,8 @@ import {AppUiService} from './core/AppUiService';
     TelemetryHud,
     LogicAnalyzerModal,
     ComponentPaletteModal,
-    CircuitLibraryModal
+    CircuitLibraryModal,
+    RouterOutlet
   ],
   template: `
     <main class="relative w-full h-screen overflow-hidden transition-all duration-700"
@@ -99,6 +101,11 @@ import {AppUiService} from './core/AppUiService';
 
       <!-- VFS Explorer -->
       <eden-file-explorer />
+
+      <!-- Angular Routed Views (Marketplace, Login, Register, Profile) -->
+      <div class="relative z-50">
+        <router-outlet />
+      </div>
     </main>
   `,
   styles: []

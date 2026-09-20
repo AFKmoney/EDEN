@@ -6,19 +6,24 @@ import { AI_PROVIDERS, AiProvider, ProviderConfig, ProviderModel } from '../type
 import { EdenAiPipelineService } from '../core/EdenAiPipelineService';
 import { CliService } from '../core/CliService';
 import { AppUiService } from '../core/AppUiService';
+import { WindowResizer } from '../core/WindowResizer';
 
 @Component({
   selector: 'eden-provider-hub',
   standalone: true,
   imports: [NgClass, NgIf, MatIconModule, DragDropModule],
   template: `
-    <div *ngIf="appUi.isProviderHubOpen()" class="fixed inset-0 z-50 pointer-events-none flex items-center justify-center p-4">
+    <div *ngIf="appUi.isProviderHubOpen()" class="fixed inset-0 z-50 pointer-events-none flex items-center justify-center p-2 sm:p-4">
       <div cdkDrag cdkDragBoundary="body" 
-           class="pointer-events-auto w-[820px] max-w-[95vw] h-[640px] max-h-[92vh] bg-[var(--color-eden-surface)] backdrop-blur-3xl border border-[var(--color-eden-border)] rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+           [style.width.px]="resizer.width()"
+           [style.height.px]="resizer.height()"
+           [style.max-width]="resizer.isMaximized() ? '99vw' : '96vw'"
+           [style.max-height]="resizer.isMaximized() ? '98vh' : '94vh'"
+           class="relative pointer-events-auto bg-[var(--color-eden-surface)] backdrop-blur-3xl border border-[var(--color-eden-border)] rounded-2xl shadow-2xl flex flex-col overflow-hidden select-text"
            style="box-shadow: 0 0 50px rgba(0, 255, 170, 0.15);">
         
         <!-- Header -->
-        <div cdkDragHandle class="flex items-center justify-between px-6 py-4 border-b border-[var(--color-eden-border)] bg-gradient-to-r from-emerald-500/10 via-cyan-500/5 to-transparent cursor-move select-none">
+        <div cdkDragHandle class="flex items-center justify-between px-6 py-4 border-b border-[var(--color-eden-border)] bg-gradient-to-r from-emerald-500/10 via-cyan-500/5 to-transparent cursor-move select-none shrink-0">
           <div class="flex items-center gap-3">
             <div class="w-8 h-8 rounded-lg bg-[var(--color-eden-neon)]/10 border border-[var(--color-eden-neon)]/30 flex items-center justify-center text-[var(--color-eden-neon)]">
               <mat-icon style="font-size: 20px; width: 20px; height: 20px;">hub</mat-icon>
@@ -33,9 +38,17 @@ import { AppUiService } from '../core/AppUiService';
               <p class="text-[11px] text-zinc-400 font-mono">Select active intelligence engine, configure keys, and test connectivity</p>
             </div>
           </div>
-          <button (click)="appUi.toggleProviderHub()" class="text-zinc-400 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/10">
-            <mat-icon style="font-size: 20px; width: 20px; height: 20px;">close</mat-icon>
-          </button>
+          <div class="flex items-center gap-1.5">
+            <!-- Maximize / Restore -->
+            <button (click)="resizer.toggleMaximize()"
+                    [title]="resizer.isMaximized() ? 'Restore size' : 'Maximize window'"
+                    class="text-zinc-400 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/10 cursor-pointer">
+              <mat-icon style="font-size: 18px; width: 18px; height: 18px;">{{ resizer.isMaximized() ? 'filter_none' : 'crop_square' }}</mat-icon>
+            </button>
+            <button (click)="appUi.toggleProviderHub()" class="text-zinc-400 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/10 cursor-pointer">
+              <mat-icon style="font-size: 20px; width: 20px; height: 20px;">close</mat-icon>
+            </button>
+          </div>
         </div>
 
         <!-- Main Layout: Left Provider List, Right Detail/Settings View -->
@@ -255,6 +268,23 @@ import { AppUiService } from '../core/AppUiService';
           </div>
         </div>
 
+        <!-- Window Resize Handles -->
+        @if (!resizer.isMaximized()) {
+          <div (pointerdown)="resizer.onResizeStart($event, 'right')"
+               class="absolute top-0 right-0 w-2 h-full cursor-ew-resize hover:bg-[var(--color-eden-neon)]/30 transition-colors z-20"
+               title="Resize width"></div>
+          <div (pointerdown)="resizer.onResizeStart($event, 'bottom')"
+               class="absolute bottom-0 left-0 h-2 w-full cursor-ns-resize hover:bg-[var(--color-eden-neon)]/30 transition-colors z-20"
+               title="Resize height"></div>
+          <div (pointerdown)="resizer.onResizeStart($event, 'corner')"
+               class="absolute bottom-0 right-0 w-6 h-6 cursor-nwse-resize flex items-end justify-end p-1 text-zinc-500 hover:text-[var(--color-eden-neon)] select-none z-30 transition-colors"
+               title="Drag to resize window">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M22 22H20V20H22V22ZM22 18H20V16H22V18ZM18 22H16V20H18V22ZM22 14H20V12H22V14ZM18 18H16V16H18V18ZM14 22H12V20H14V22Z"/>
+            </svg>
+          </div>
+        }
+
       </div>
     </div>
   `,
@@ -275,6 +305,14 @@ export class ProviderHubPanel {
   public appUi = inject(AppUiService);
   public pipeline = inject(EdenAiPipelineService);
   private cli = inject(CliService);
+
+  public resizer = new WindowResizer({
+    storageKey: 'provider_hub',
+    defaultWidth: 840,
+    defaultHeight: 640,
+    minWidth: 500,
+    minHeight: 380
+  });
 
   readonly providerKeys: AiProvider[] = [
     'nvidia',
@@ -299,7 +337,7 @@ export class ProviderHubPanel {
   });
 
   currentCustomKey = computed<string>(() => {
-    const keys = this.cli.getAllStoredKeys();
+    const keys = this.cli.storedKeys();
     return keys[this.selectedProviderId()] || '';
   });
 

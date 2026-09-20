@@ -1,8 +1,12 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
+import { DragDropModule } from '@angular/cdk/drag-drop';
 import { CoreEngine } from '../core/CoreEngine';
 import { AppUiService } from '../core/AppUiService';
+import { TerminalService } from '../core/TerminalService';
+import { copyToClipboard } from '../core/ClipboardUtil';
+import { WindowResizer } from '../core/WindowResizer';
 
 interface CircuitPreset {
   id: string;
@@ -17,18 +21,24 @@ interface CircuitPreset {
 @Component({
   selector: 'eden-circuit-library',
   standalone: true,
-  imports: [CommonModule, MatIconModule],
+  imports: [CommonModule, MatIconModule, DragDropModule],
   template: `
     <div id="circuit-library-overlay"
-         class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-6 animate-fade-in"
+         class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4 animate-fade-in"
          (click)="close()">
 
       <div id="circuit-library-card"
-           class="bg-[#0b0f17] border border-purple-500/20 rounded-2xl w-full max-w-5xl max-h-[85vh] flex flex-col shadow-[0_0_50px_rgba(168,85,247,0.15)] overflow-hidden"
+           cdkDrag cdkDragBoundary="body"
+           [style.width.px]="resizer.width()"
+           [style.height.px]="resizer.height()"
+           [style.max-width]="resizer.isMaximized() ? '99vw' : '96vw'"
+           [style.max-height]="resizer.isMaximized() ? '98vh' : '94vh'"
+           class="relative bg-[#0b0f17] border border-purple-500/20 rounded-2xl flex flex-col shadow-[0_0_50px_rgba(168,85,247,0.15)] overflow-hidden select-text"
            (click)="$event.stopPropagation()">
 
         <!-- Header -->
-        <div class="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
+        <div cdkDragHandle
+             class="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-white/[0.02] cursor-move select-none shrink-0">
           <div class="flex items-center gap-3">
             <div class="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400">
               <mat-icon class="text-xl">developer_board</mat-icon>
@@ -67,8 +77,15 @@ interface CircuitPreset {
             <button (click)="exportVerilog()"
                     title="Generate and copy synthesizable Verilog HDL"
                     class="px-2.5 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-mono flex items-center gap-1 transition-colors cursor-pointer">
-              <mat-icon class="text-sm">code</mat-icon>
-              <span>Verilog HDL</span>
+              <mat-icon class="text-sm">{{ isVerilogCopied() ? 'check' : 'code' }}</mat-icon>
+              <span>{{ isVerilogCopied() ? 'Copied!' : 'Verilog HDL' }}</span>
+            </button>
+
+            <!-- Maximize / Restore -->
+            <button (click)="resizer.toggleMaximize()"
+                    [title]="resizer.isMaximized() ? 'Restore size' : 'Maximize window'"
+                    class="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer">
+              <mat-icon class="text-lg">{{ resizer.isMaximized() ? 'filter_none' : 'crop_square' }}</mat-icon>
             </button>
 
             <button id="btn-close-circuit-lib"
@@ -118,6 +135,23 @@ interface CircuitPreset {
           }
         </div>
 
+        <!-- Window Resize Handles -->
+        @if (!resizer.isMaximized()) {
+          <div (pointerdown)="resizer.onResizeStart($event, 'right')"
+               class="absolute top-0 right-0 w-2 h-full cursor-ew-resize hover:bg-purple-500/30 transition-colors z-20"
+               title="Resize width"></div>
+          <div (pointerdown)="resizer.onResizeStart($event, 'bottom')"
+               class="absolute bottom-0 left-0 h-2 w-full cursor-ns-resize hover:bg-purple-500/30 transition-colors z-20"
+               title="Resize height"></div>
+          <div (pointerdown)="resizer.onResizeStart($event, 'corner')"
+               class="absolute bottom-0 right-0 w-6 h-6 cursor-nwse-resize flex items-end justify-end p-1 text-zinc-500 hover:text-purple-400 select-none z-30 transition-colors"
+               title="Drag to resize window">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M22 22H20V20H22V22ZM22 18H20V16H22V18ZM18 22H16V20H18V22ZM22 14H20V12H22V14ZM18 18H16V16H18V18ZM14 22H12V20H14V22Z"/>
+            </svg>
+          </div>
+        }
+
       </div>
     </div>
   `
@@ -125,6 +159,17 @@ interface CircuitPreset {
 export class CircuitLibraryModal {
   public engine = inject(CoreEngine);
   public appUi = inject(AppUiService);
+  public terminal = inject(TerminalService);
+
+  public resizer = new WindowResizer({
+    storageKey: 'circuit_library',
+    defaultWidth: 980,
+    defaultHeight: 700,
+    minWidth: 480,
+    minHeight: 350
+  });
+
+  isVerilogCopied = signal(false);
 
   circuits: CircuitPreset[] = [
     {
@@ -239,11 +284,15 @@ export class CircuitLibraryModal {
     URL.revokeObjectURL(url);
   }
 
-  exportVerilog() {
+  async exportVerilog() {
     const verilog = this.engine.generateVerilogHdl();
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(verilog);
-      alert('Verilog HDL code copied to clipboard!');
+    const success = await copyToClipboard(verilog);
+    if (success) {
+      this.isVerilogCopied.set(true);
+      this.terminal.log('Synthesizable Verilog HDL exported and copied to clipboard.', 'SYSTEM');
+      setTimeout(() => this.isVerilogCopied.set(false), 2500);
+    } else {
+      this.terminal.log('Generated Verilog HDL (unable to access clipboard in current frame).', 'WARN');
     }
   }
 
